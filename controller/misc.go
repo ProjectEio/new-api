@@ -11,7 +11,6 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/oauth"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -54,8 +53,6 @@ func GetStatus(c *gin.Context) {
 		"email_verification":          common.EmailVerificationEnabled,
 		"github_oauth":                common.GitHubOAuthEnabled,
 		"github_client_id":            common.GitHubClientId,
-		"discord_oauth":               system_setting.GetDiscordSettings().Enabled,
-		"discord_client_id":           system_setting.GetDiscordSettings().ClientId,
 		"linuxdo_oauth":               common.LinuxDOOAuthEnabled,
 		"linuxdo_client_id":           common.LinuxDOClientId,
 		"linuxdo_minimum_trust_level": common.LinuxDOMinimumTrustLevel,
@@ -92,9 +89,7 @@ func GetStatus(c *gin.Context) {
 		"password_register_enabled":     common.PasswordRegisterEnabled,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
 
-		"usd_exchange_rate": operation_setting.USDExchangeRate,
-		"price":             operation_setting.Price,
-		"stripe_unit_price": setting.StripeUnitPrice,
+		"price": operation_setting.Price,
 
 		// 面板启用开关
 		"api_info_enabled":      cs.ApiInfoEnabled,
@@ -106,20 +101,17 @@ func GetStatus(c *gin.Context) {
 		"HeaderNavModules":    common.OptionMap["HeaderNavModules"],
 		"SidebarModulesAdmin": common.OptionMap["SidebarModulesAdmin"],
 
-		"oidc_enabled":                system_setting.GetOIDCSettings().Enabled,
-		"oidc_client_id":              system_setting.GetOIDCSettings().ClientId,
-		"oidc_authorization_endpoint": system_setting.GetOIDCSettings().AuthorizationEndpoint,
-		"passkey_login":               passkeySetting.Enabled,
-		"passkey_display_name":        passkeySetting.RPDisplayName,
-		"passkey_rp_id":               passkeySetting.RPID,
-		"passkey_origins":             passkeySetting.Origins,
-		"passkey_allow_insecure":      passkeySetting.AllowInsecureOrigin,
-		"passkey_user_verification":   passkeySetting.UserVerification,
-		"passkey_attachment":          passkeySetting.AttachmentPreference,
-		"setup":                       constant.Setup,
-		"user_agreement_enabled":      legalSetting.UserAgreement != "",
-		"privacy_policy_enabled":      legalSetting.PrivacyPolicy != "",
-		"checkin_enabled":             operation_setting.GetCheckinSetting().Enabled,
+		"passkey_login":             passkeySetting.Enabled,
+		"passkey_display_name":      passkeySetting.RPDisplayName,
+		"passkey_rp_id":             passkeySetting.RPID,
+		"passkey_origins":           passkeySetting.Origins,
+		"passkey_allow_insecure":    passkeySetting.AllowInsecureOrigin,
+		"passkey_user_verification": passkeySetting.UserVerification,
+		"passkey_attachment":        passkeySetting.AttachmentPreference,
+		"setup":                     constant.Setup,
+		"user_agreement_enabled":    legalSetting.UserAgreement != "",
+		"privacy_policy_enabled":    legalSetting.PrivacyPolicy != "",
+		"checkin_enabled":           operation_setting.GetCheckinSetting().Enabled,
 	}
 
 	// 根据启用状态注入可选内容
@@ -131,34 +123,6 @@ func GetStatus(c *gin.Context) {
 	}
 	if cs.FAQEnabled {
 		data["faq"] = console_setting.GetFAQ()
-	}
-
-	// Add enabled custom OAuth providers
-	customProviders := oauth.GetEnabledCustomProviders()
-	if len(customProviders) > 0 {
-		type CustomOAuthInfo struct {
-			Id                    int    `json:"id"`
-			Name                  string `json:"name"`
-			Slug                  string `json:"slug"`
-			Icon                  string `json:"icon"`
-			ClientId              string `json:"client_id"`
-			AuthorizationEndpoint string `json:"authorization_endpoint"`
-			Scopes                string `json:"scopes"`
-		}
-		providersInfo := make([]CustomOAuthInfo, 0, len(customProviders))
-		for _, p := range customProviders {
-			config := p.GetConfig()
-			providersInfo = append(providersInfo, CustomOAuthInfo{
-				Id:                    config.Id,
-				Name:                  config.Name,
-				Slug:                  config.Slug,
-				Icon:                  config.Icon,
-				ClientId:              config.ClientId,
-				AuthorizationEndpoint: config.AuthorizationEndpoint,
-				Scopes:                config.Scopes,
-			})
-		}
-		data["custom_oauth_providers"] = providersInfo
 	}
 
 	c.JSON(http.StatusOK, gin.H{

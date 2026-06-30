@@ -12,7 +12,7 @@ The expression is the billing contract between the administrator and the system.
 
 2. **Variables are opt-in** — `p` (prompt) and `c` (completion) are the base. Cache (`cr`, `cc`, `cc1h`), image (`img`), and audio (`ai`, `ao`) variables are optional. If omitted, those tokens are included in `p`/`c` and priced at their rate. The system automatically detects which variables the expression uses (via AST introspection) and adjusts token normalization accordingly.
 
-3. **Prices are real prices** — Expression coefficients are actual $/1M tokens prices as published by providers. No ratio conversion, no `/2` convention. `p * 2.5` means $2.50 per 1M prompt tokens.
+3. **Prices are real prices** — Expression coefficients are actual ¥/1M tokens prices. No ratio conversion, no `/2` convention. `p * 2.5` means ¥2.50 per 1M prompt tokens.
 
 4. **Upstream-agnostic** — The expression doesn't need to know whether the upstream API is OpenAI-format (prompt_tokens includes cache) or Claude-format (input_tokens excludes cache). The system normalizes token counts before evaluation based on the upstream response format.
 
@@ -214,7 +214,7 @@ This ensures that heavy cache usage doesn't cause the tier condition to incorrec
 
 ### Quota Conversion
 
-Expression coefficients are $/1M tokens. Conversion to internal quota:
+Expression coefficients are ¥/1M tokens. Conversion to internal quota:
 
 ```
 quota = exprOutput / 1,000,000 * QuotaPerUnit * groupRatio

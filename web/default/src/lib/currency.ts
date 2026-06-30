@@ -151,7 +151,7 @@ export function isCurrencyDisplayType(
 
 export function parseCurrencyDisplayType(
   value: unknown,
-  fallback: CurrencyDisplayType = 'USD'
+  fallback: CurrencyDisplayType = 'CNY'
 ): CurrencyDisplayType {
   return isCurrencyDisplayType(value) ? value : fallback
 }
@@ -183,13 +183,6 @@ function getConfig(): CurrencyConfig {
 
 function getDisplayMeta(config: CurrencyConfig): DisplayMeta {
   switch (config.quotaDisplayType) {
-    case 'CNY':
-      return {
-        kind: 'currency',
-        symbol: '¥',
-        currencyCode: 'CNY',
-        exchangeRate: config.usdExchangeRate,
-      }
     case 'CUSTOM':
       return {
         kind: 'custom',
@@ -201,12 +194,13 @@ function getDisplayMeta(config: CurrencyConfig): DisplayMeta {
         kind: 'tokens',
         quotaPerUnit: config.quotaPerUnit,
       }
-    case 'USD':
+    case 'CNY':
     default:
+      // 人民币为计费基准：内部金额已是 ¥，无需汇率换算
       return {
         kind: 'currency',
-        symbol: '$',
-        currencyCode: 'USD',
+        symbol: '¥',
+        currencyCode: 'CNY',
         exchangeRate: 1,
       }
   }
@@ -217,8 +211,8 @@ function getBillingDisplayMeta(config: CurrencyConfig): DisplayMeta {
   if (meta.kind === 'tokens') {
     return {
       kind: 'currency',
-      symbol: '$',
-      currencyCode: 'USD',
+      symbol: '¥',
+      currencyCode: 'CNY',
       exchangeRate: 1,
     }
   }
@@ -519,13 +513,11 @@ export function getCurrencyLabel(): string {
   }
 
   switch (config.quotaDisplayType) {
-    case 'CNY':
-      return 'CNY'
     case 'CUSTOM':
       return meta.kind === 'custom' ? meta.symbol : 'Custom'
-    case 'USD':
+    case 'CNY':
     default:
-      return 'USD'
+      return 'CNY'
   }
 }
 

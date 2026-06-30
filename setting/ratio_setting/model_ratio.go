@@ -9,19 +9,19 @@ import (
 )
 
 // from songquanpeng/one-api
+// 计费基准为人民币（¥）。以下常量用于把“每 1K tokens 的价格”换算成倍率；
+// USD/RMB 仅作为历史换算系数保留，新部署请直接在后台按人民币重新定价。
 const (
-	USD2RMB = 7.3 // 暂定 1 USD = 7.3 RMB
-	USD     = 500 // $0.002 = 1 -> $1 = 500
+	USD2RMB = 7.3 // 历史汇率系数：1 USD = 7.3 RMB
+	USD     = 500 // 历史标度：$0.002/1K = 倍率 1
 	RMB     = USD / USD2RMB
 )
 
 // modelRatio
 // https://platform.openai.com/docs/models/model-endpoint-compatibility
-// https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Blfmc9dlf
 // https://openai.com/pricing
-// TODO: when a new api is enabled, check the pricing here
-// 1 === $0.002 / 1K tokens
-// 1 === ￥0.014 / 1k tokens
+// TODO: 启用新模型时在此核对价格
+// 价格/倍率均以人民币为基准（¥1 = 100 额度）；新部署请在后台按人民币重新定价
 
 var defaultModelRatio = map[string]float64{
 	//"midjourney":                50,

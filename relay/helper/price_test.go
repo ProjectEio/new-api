@@ -52,9 +52,12 @@ func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 		},
 	}
 
-	priceData, err := ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{})
+	priceData, err := ModelPriceHelper(ctx, info, 1_000_000, &types.TokenCountMeta{})
 	require.NoError(t, err)
-	require.Equal(t, 1500, priceData.QuotaToPreConsume)
+	// stream tier => p * 3; with p = 1,000,000 tokens the raw cost is 3 (¥/1M units),
+	// so quota = 3 * QuotaPerUnit (group ratio 1.0). Derive from the anchor so the
+	// assertion stays correct regardless of the configured QuotaPerUnit.
+	require.Equal(t, int(3*common.QuotaPerUnit), priceData.QuotaToPreConsume)
 	require.NotNil(t, info.TieredBillingSnapshot)
 	require.Equal(t, "stream", info.TieredBillingSnapshot.EstimatedTier)
 	require.Equal(t, billing_setting.BillingModeTieredExpr, info.TieredBillingSnapshot.BillingMode)

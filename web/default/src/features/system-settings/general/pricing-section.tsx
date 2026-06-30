@@ -63,7 +63,7 @@ const createPricingSchema = (t: (key: string) => string) =>
       DisplayInCurrencyEnabled: z.boolean(),
       DisplayTokenStatEnabled: z.boolean(),
       general_setting: z.object({
-        quota_display_type: z.enum(['USD', 'CNY', 'TOKENS', 'CUSTOM']),
+        quota_display_type: z.enum(['CNY', 'TOKENS', 'CUSTOM']),
         custom_currency_symbol: z.string().max(8).optional(),
         custom_currency_exchange_rate: z.coerce
           .number()
@@ -134,7 +134,7 @@ export function PricingSection({ defaultValues }: PricingSectionProps) {
       },
     })
 
-  const displayType = form.watch('general_setting.quota_display_type') ?? 'USD'
+  const displayType = form.watch('general_setting.quota_display_type') ?? 'CNY'
   const displayInCurrencyEnabled = form.watch('DisplayInCurrencyEnabled')
   const showTokensOnlyOption = displayType === 'TOKENS'
   const showQuotaPerUnit =
@@ -191,7 +191,6 @@ export function PricingSection({ defaultValues }: PricingSectionProps) {
                   <FormLabel>{t('Display Mode')}</FormLabel>
                   <Select
                     items={[
-                      { value: 'USD', label: t('USD') },
                       { value: 'CNY', label: t('CNY') },
                       { value: 'CUSTOM', label: t('Custom Currency') },
                       { value: 'TOKENS', label: t('Tokens Only') },
@@ -206,7 +205,6 @@ export function PricingSection({ defaultValues }: PricingSectionProps) {
                     </FormControl>
                     <SelectContent alignItemWithTrigger={false}>
                       <SelectGroup>
-                        <SelectItem value='USD'>{t('USD')}</SelectItem>
                         <SelectItem value='CNY'>{t('CNY')}</SelectItem>
                         <SelectItem value='CUSTOM'>
                           {t('Custom Currency')}
@@ -226,37 +224,6 @@ export function PricingSection({ defaultValues }: PricingSectionProps) {
                 </FormItem>
               )}
             />
-
-            {displayType !== 'TOKENS' && (
-              <FormField
-                control={form.control}
-                name='USDExchangeRate'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {displayType === 'CNY'
-                        ? t('CNY per USD')
-                        : displayType === 'USD'
-                          ? t('USD Exchange Rate')
-                          : t('USD Exchange Rate')}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type='number'
-                        step='0.01'
-                        {...safeNumberFieldProps(field)}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {t(
-                        'Real exchange rate between USD and your payment gateway currency'
-                      )}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
 
             {displayType === 'CUSTOM' && (
               <div className='grid gap-4 sm:grid-cols-2'>
