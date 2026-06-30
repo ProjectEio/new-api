@@ -9,7 +9,7 @@ import (
 
 // Provider defines the interface for OAuth providers
 type Provider interface {
-	// GetName returns the display name of the provider (e.g., "GitHub", "Discord")
+	// GetName returns the display name of the provider (e.g., "GitHub", "LinuxDO")
 	GetName() string
 
 	// IsEnabled returns whether this OAuth provider is enabled
