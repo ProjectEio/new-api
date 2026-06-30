@@ -25,7 +25,6 @@ import {
   useState,
 } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { VChart } from '@visactor/react-vchart'
 import type { EventParamsDefinition, IVChart } from '@visactor/vchart'
 import {
   Activity,
@@ -88,7 +87,7 @@ import { ROLE } from '@/lib/roles'
 import { computeTimeRange } from '@/lib/time'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
-import { VCHART_OPTION } from '@/lib/vchart'
+import { VCHART_OPTION, VChart } from '@/lib/vchart'
 import { useAuthStore } from '@/stores/auth-store'
 import { FlowNodeFilterControl } from './flow-node-filter'
 

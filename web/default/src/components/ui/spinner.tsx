@@ -16,21 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Loading03Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { LoaderCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type SpinnerProps = Omit<
-  React.ComponentProps<typeof HugeiconsIcon>,
-  'icon' | 'strokeWidth'
+  React.ComponentProps<typeof LoaderCircle>,
+  'strokeWidth'
 > & {
   strokeWidth?: number
 }
 
 function Spinner({ className, strokeWidth = 2, ...props }: SpinnerProps) {
   return (
-    <HugeiconsIcon
-      icon={Loading03Icon}
+    <LoaderCircle
       strokeWidth={strokeWidth}
       role='status'
       aria-label='Loading'

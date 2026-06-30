@@ -17,8 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import * as React from 'react'
-import { Add01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
@@ -364,8 +363,7 @@ export function MultiSelect(props: MultiSelectProps) {
                 >
                   {isCreate ? (
                     <>
-                      <HugeiconsIcon
-                        icon={Add01Icon}
+                      <Plus
                         strokeWidth={2}
                         className='text-muted-foreground'
                         aria-hidden='true'

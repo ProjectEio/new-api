@@ -19,19 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { useState, useCallback } from 'react'
 import i18next from 'i18next'
 import { toast } from 'sonner'
-import {
-  calculateAmount,
-  calculateStripeAmount,
-  calculateWaffoPancakeAmount,
-  requestPayment,
-  requestStripePayment,
-  isApiSuccess,
-} from '../api'
-import {
-  isStripePayment,
-  isWaffoPancakePayment,
-  submitPaymentForm,
-} from '../lib'
+import { calculateAmount, requestPayment, isApiSuccess } from '../api'
+import { submitPaymentForm } from '../lib'
 
 // ============================================================================
 // Payment Hook
@@ -43,37 +32,28 @@ export function usePayment() {
   const [processing, setProcessing] = useState(false)
 
   // Calculate payment amount
-  const calculatePaymentAmount = useCallback(
-    async (topupAmount: number, paymentType: string) => {
-      try {
-        setCalculating(true)
+  const calculatePaymentAmount = useCallback(async (topupAmount: number) => {
+    try {
+      setCalculating(true)
 
-        const isStripe = isStripePayment(paymentType)
-        const isPancake = isWaffoPancakePayment(paymentType)
-        const response = isStripe
-          ? await calculateStripeAmount({ amount: topupAmount })
-          : isPancake
-            ? await calculateWaffoPancakeAmount({ amount: topupAmount })
-            : await calculateAmount({ amount: topupAmount })
+      const response = await calculateAmount({ amount: topupAmount })
 
-        if (isApiSuccess(response) && response.data) {
-          const calculatedAmount = parseFloat(response.data)
-          setAmount(calculatedAmount)
-          return calculatedAmount
-        }
-
-        // Don't show error for calculation, just set to 0
-        setAmount(0)
-        return 0
-      } catch (_error) {
-        setAmount(0)
-        return 0
-      } finally {
-        setCalculating(false)
+      if (isApiSuccess(response) && response.data) {
+        const calculatedAmount = Number.parseFloat(response.data)
+        setAmount(calculatedAmount)
+        return calculatedAmount
       }
-    },
-    []
-  )
+
+      // Don't show error for calculation, just set to 0
+      setAmount(0)
+      return 0
+    } catch {
+      setAmount(0)
+      return 0
+    } finally {
+      setCalculating(false)
+    }
+  }, [])
 
   // Process payment
   const processPayment = useCallback(
@@ -81,33 +61,19 @@ export function usePayment() {
       try {
         setProcessing(true)
 
-        const isStripe = isStripePayment(paymentType)
         const amount = Math.floor(topupAmount)
 
-        const response = isStripe
-          ? await requestStripePayment({
-              amount,
-              payment_method: 'stripe',
-            })
-          : await requestPayment({
-              amount,
-              payment_method: paymentType,
-            })
+        const response = await requestPayment({
+          amount,
+          payment_method: paymentType,
+        })
 
         if (!isApiSuccess(response)) {
           toast.error(response.message || i18next.t('Payment request failed'))
           return false
         }
 
-        // Handle Stripe payment
-        if (isStripe && response.data?.pay_link) {
-          window.open(response.data.pay_link as string, '_blank')
-          toast.success(i18next.t('Redirecting to payment page...'))
-          return true
-        }
-
-        // Handle non-Stripe payment
-        if (!isStripe && response.data) {
+        if (response.data) {
           const url = (response as unknown as { url?: string }).url
           if (url) {
             submitPaymentForm(url, response.data)
@@ -117,7 +83,7 @@ export function usePayment() {
         }
 
         return false
-      } catch (_error) {
+      } catch {
         toast.error(i18next.t('Payment request failed'))
         return false
       } finally {

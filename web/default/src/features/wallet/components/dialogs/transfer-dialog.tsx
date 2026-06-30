@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog } from '@/components/dialog'
-import { QUOTA_PER_DOLLAR } from '../../constants'
+import { MIN_TRANSFER_QUOTA } from '../../constants'
 
 interface TransferDialogProps {
   open: boolean
@@ -42,12 +42,12 @@ export function TransferDialog({
   transferring,
 }: TransferDialogProps) {
   const { t } = useTranslation()
-  const [amount, setAmount] = useState(QUOTA_PER_DOLLAR)
+  const [amount, setAmount] = useState(MIN_TRANSFER_QUOTA)
 
   useEffect(() => {
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAmount(QUOTA_PER_DOLLAR)
+      setAmount(MIN_TRANSFER_QUOTA)
     }
   }, [open])
 
@@ -107,13 +107,13 @@ export function TransferDialog({
             type='number'
             value={amount}
             onChange={(e) => setAmount(Number(e.target.value))}
-            min={QUOTA_PER_DOLLAR}
+            min={MIN_TRANSFER_QUOTA}
             max={availableQuota}
-            step={QUOTA_PER_DOLLAR}
+            step={MIN_TRANSFER_QUOTA}
             className='font-mono text-lg'
           />
           <p className='text-muted-foreground text-xs'>
-            {t('Minimum:')} {formatQuota(QUOTA_PER_DOLLAR)}
+            {t('Minimum:')} {formatQuota(MIN_TRANSFER_QUOTA)}
           </p>
         </div>
       </div>

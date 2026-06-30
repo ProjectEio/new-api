@@ -17,43 +17,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useRef, useState } from 'react'
+import { ChartThemeManager } from '@/lib/vchart'
 import { useTheme } from '@/context/theme-provider'
 
 /**
- * Lazy-load VChart's `ThemeManager` and switch its theme to follow the
- * resolved app theme (light / dark). Returns flags consumers can use to
- * defer chart rendering until the theme is ready.
+ * Switch VChart's `ThemeManager` to follow the resolved app theme
+ * (light / dark). Returns flags consumers can use to defer chart rendering
+ * until the theme is ready. The ThemeManager comes from the tree-shaken
+ * core constructor (see `@/lib/vchart`), so no extra package is loaded.
  */
-let themeManagerPromise: Promise<
-  (typeof import('@visactor/vchart'))['ThemeManager']
-> | null = null
+type ThemeManager = typeof ChartThemeManager
 
 export function useChartTheme() {
   const { resolvedTheme } = useTheme()
   const [themeReady, setThemeReady] = useState(false)
-  const themeRef = useRef<
-    (typeof import('@visactor/vchart'))['ThemeManager'] | null
-  >(null)
+  const themeRef = useRef<ThemeManager | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-    const updateTheme = async () => {
-      setThemeReady(false)
-      if (!themeManagerPromise) {
-        themeManagerPromise = import('@visactor/vchart').then(
-          (m) => m.ThemeManager
-        )
-      }
-      const ThemeManager = await themeManagerPromise
-      if (cancelled) return
-      themeRef.current = ThemeManager
-      ThemeManager.setCurrentTheme(resolvedTheme === 'dark' ? 'dark' : 'light')
-      setThemeReady(true)
-    }
-    updateTheme()
-    return () => {
-      cancelled = true
-    }
+    themeRef.current = ChartThemeManager
+    ChartThemeManager.setCurrentTheme(resolvedTheme === 'dark' ? 'dark' : 'light')
+    setThemeReady(true)
   }, [resolvedTheme])
 
   return { resolvedTheme, themeReady }

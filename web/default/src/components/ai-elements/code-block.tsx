@@ -28,11 +28,7 @@ import {
   useState,
 } from 'react'
 import { CheckIcon, CopyIcon } from 'lucide-react'
-import {
-  type BundledLanguage,
-  codeToHtml,
-  type ShikiTransformer,
-} from 'shiki/bundle/web'
+import type { BundledLanguage, ShikiTransformer } from 'shiki/bundle/web'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -76,6 +72,8 @@ export async function highlightCode(
   language: BundledLanguage,
   showLineNumbers = false
 ) {
+  // Load shiki on demand so its grammars/themes stay out of the initial bundle.
+  const { codeToHtml } = await import('shiki/bundle/web')
   const transformers: ShikiTransformer[] = showLineNumbers
     ? [lineNumberTransformer]
     : []
