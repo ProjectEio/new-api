@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as z from 'zod'
-import axios from 'axios'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
@@ -46,30 +45,10 @@ import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 
-/**
- * react-hook-form 7 treats dotted `name` strings as nested paths. To keep
- * form state, schema validation, and dirty tracking aligned, the
- * `discord.*` and `oidc.*` fields are modeled as nested objects here and
- * flattened back to dotted server keys only when persisting.
- */
 const oauthSchema = z.object({
   GitHubOAuthEnabled: z.boolean(),
   GitHubClientId: z.string(),
   GitHubClientSecret: z.string(),
-  discord: z.object({
-    enabled: z.boolean(),
-    client_id: z.string(),
-    client_secret: z.string(),
-  }),
-  oidc: z.object({
-    enabled: z.boolean(),
-    client_id: z.string(),
-    client_secret: z.string(),
-    well_known: z.string(),
-    authorization_endpoint: z.string(),
-    token_endpoint: z.string(),
-    user_info_endpoint: z.string(),
-  }),
   TelegramOAuthEnabled: z.boolean(),
   TelegramBotToken: z.string(),
   TelegramBotName: z.string(),
@@ -89,16 +68,6 @@ type FlatOAuthDefaults = {
   GitHubOAuthEnabled: boolean
   GitHubClientId: string
   GitHubClientSecret: string
-  'discord.enabled': boolean
-  'discord.client_id': string
-  'discord.client_secret': string
-  'oidc.enabled': boolean
-  'oidc.client_id': string
-  'oidc.client_secret': string
-  'oidc.well_known': string
-  'oidc.authorization_endpoint': string
-  'oidc.token_endpoint': string
-  'oidc.user_info_endpoint': string
   TelegramOAuthEnabled: boolean
   TelegramBotToken: string
   TelegramBotName: string
@@ -119,20 +88,6 @@ const buildFormDefaults = (defaults: FlatOAuthDefaults): OAuthFormValues => ({
   GitHubOAuthEnabled: defaults.GitHubOAuthEnabled,
   GitHubClientId: defaults.GitHubClientId ?? '',
   GitHubClientSecret: defaults.GitHubClientSecret ?? '',
-  discord: {
-    enabled: defaults['discord.enabled'],
-    client_id: defaults['discord.client_id'] ?? '',
-    client_secret: defaults['discord.client_secret'] ?? '',
-  },
-  oidc: {
-    enabled: defaults['oidc.enabled'],
-    client_id: defaults['oidc.client_id'] ?? '',
-    client_secret: defaults['oidc.client_secret'] ?? '',
-    well_known: defaults['oidc.well_known'] ?? '',
-    authorization_endpoint: defaults['oidc.authorization_endpoint'] ?? '',
-    token_endpoint: defaults['oidc.token_endpoint'] ?? '',
-    user_info_endpoint: defaults['oidc.user_info_endpoint'] ?? '',
-  },
   TelegramOAuthEnabled: defaults.TelegramOAuthEnabled,
   TelegramBotToken: defaults.TelegramBotToken ?? '',
   TelegramBotName: defaults.TelegramBotName ?? '',
@@ -150,16 +105,6 @@ const normalizeFormValues = (values: OAuthFormValues): FlatOAuthDefaults => ({
   GitHubOAuthEnabled: values.GitHubOAuthEnabled,
   GitHubClientId: values.GitHubClientId,
   GitHubClientSecret: values.GitHubClientSecret,
-  'discord.enabled': values.discord.enabled,
-  'discord.client_id': values.discord.client_id,
-  'discord.client_secret': values.discord.client_secret,
-  'oidc.enabled': values.oidc.enabled,
-  'oidc.client_id': values.oidc.client_id,
-  'oidc.client_secret': values.oidc.client_secret,
-  'oidc.well_known': values.oidc.well_known,
-  'oidc.authorization_endpoint': values.oidc.authorization_endpoint,
-  'oidc.token_endpoint': values.oidc.token_endpoint,
-  'oidc.user_info_endpoint': values.oidc.user_info_endpoint,
   TelegramOAuthEnabled: values.TelegramOAuthEnabled,
   TelegramBotToken: values.TelegramBotToken,
   TelegramBotName: values.TelegramBotName,
@@ -206,52 +151,7 @@ export function OAuthSection(props: OAuthSectionProps) {
   }, [props.defaultValues, form])
 
   const onSubmit = async (values: OAuthFormValues) => {
-    let finalValues = values
-
-    if (values.oidc.well_known && values.oidc.well_known.trim() !== '') {
-      const wellKnown = values.oidc.well_known.trim()
-      if (
-        !wellKnown.startsWith('http://') &&
-        !wellKnown.startsWith('https://')
-      ) {
-        toast.error(t('Well-Known URL must start with http:// or https://'))
-        return
-      }
-
-      try {
-        const res = await axios.create().get(wellKnown)
-        const authEndpoint = res.data['authorization_endpoint'] || ''
-        const tokenEndpoint = res.data['token_endpoint'] || ''
-        const userInfoEndpoint = res.data['userinfo_endpoint'] || ''
-
-        finalValues = {
-          ...values,
-          oidc: {
-            ...values.oidc,
-            authorization_endpoint: authEndpoint,
-            token_endpoint: tokenEndpoint,
-            user_info_endpoint: userInfoEndpoint,
-          },
-        }
-
-        form.setValue('oidc.authorization_endpoint', authEndpoint)
-        form.setValue('oidc.token_endpoint', tokenEndpoint)
-        form.setValue('oidc.user_info_endpoint', userInfoEndpoint)
-
-        toast.success(t('OIDC configuration fetched successfully'))
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(err)
-        toast.error(
-          t(
-            'Failed to fetch OIDC configuration. Please check the URL and network status'
-          )
-        )
-        return
-      }
-    }
-
-    const normalized = normalizeFormValues(finalValues)
+    const normalized = normalizeFormValues(values)
     const changedKeys = (
       Object.keys(normalized) as Array<keyof FlatOAuthDefaults>
     ).filter((key) => normalized[key] !== baselineRef.current[key])
@@ -294,10 +194,8 @@ export function OAuthSection(props: OAuthSectionProps) {
             <FormDirtyIndicator isDirty={form.formState.isDirty} />
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className='grid w-full grid-cols-6'>
+              <TabsList className='grid w-full grid-cols-4'>
                 <TabsTrigger value='github'>{t('GitHub')}</TabsTrigger>
-                <TabsTrigger value='discord'>{t('Discord')}</TabsTrigger>
-                <TabsTrigger value='oidc'>{t('OIDC')}</TabsTrigger>
                 <TabsTrigger value='telegram'>{t('Telegram')}</TabsTrigger>
                 <TabsTrigger value='linuxdo'>{t('LinuxDO')}</TabsTrigger>
                 <TabsTrigger value='wechat'>{t('WeChat')}</TabsTrigger>
@@ -360,255 +258,6 @@ export function OAuthSection(props: OAuthSectionProps) {
                           type='password'
                           placeholder={t('Your GitHub OAuth Client Secret')}
                           autoComplete='new-password'
-                          value={field.value ?? ''}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          name={field.name}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </TabsContent>
-
-              <TabsContent value='discord' className={oauthTabContentClassName}>
-                <FormField
-                  control={form.control}
-                  name='discord.enabled'
-                  render={({ field }) => (
-                    <SettingsSwitchItem>
-                      <SettingsSwitchContent>
-                        <FormLabel>{t('Enable Discord OAuth')}</FormLabel>
-                        <FormDescription>
-                          {t('Allow users to sign in with Discord')}
-                        </FormDescription>
-                      </SettingsSwitchContent>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </SettingsSwitchItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='discord.client_id'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('Client ID')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={t('Your Discord OAuth Client ID')}
-                          autoComplete='off'
-                          value={field.value ?? ''}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          name={field.name}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='discord.client_secret'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('Client Secret')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type='password'
-                          placeholder={t('Your Discord OAuth Client Secret')}
-                          autoComplete='new-password'
-                          value={field.value ?? ''}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          name={field.name}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </TabsContent>
-
-              <TabsContent value='oidc' className={oauthTabContentClassName}>
-                <FormField
-                  control={form.control}
-                  name='oidc.enabled'
-                  render={({ field }) => (
-                    <SettingsSwitchItem>
-                      <SettingsSwitchContent>
-                        <FormLabel>{t('Enable OIDC')}</FormLabel>
-                        <FormDescription>
-                          {t('Allow users to sign in with OpenID Connect')}
-                        </FormDescription>
-                      </SettingsSwitchContent>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </SettingsSwitchItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='oidc.client_id'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('Client ID')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={t('OIDC Client ID')}
-                          autoComplete='off'
-                          value={field.value ?? ''}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          name={field.name}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='oidc.client_secret'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('Client Secret')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type='password'
-                          placeholder={t('OIDC Client Secret')}
-                          autoComplete='new-password'
-                          value={field.value ?? ''}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          name={field.name}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='oidc.well_known'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('Well-Known URL')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={t(
-                            'https://provider.com/.well-known/openid-configuration'
-                          )}
-                          autoComplete='off'
-                          value={field.value ?? ''}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          name={field.name}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        {t('Auto-discovers endpoints from the provider')}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='oidc.authorization_endpoint'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {t('Authorization Endpoint (Optional)')}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={t('Override auto-discovered endpoint')}
-                          autoComplete='off'
-                          value={field.value ?? ''}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          name={field.name}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='oidc.token_endpoint'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('Token Endpoint (Optional)')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={t('Override auto-discovered endpoint')}
-                          autoComplete='off'
-                          value={field.value ?? ''}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          name={field.name}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='oidc.user_info_endpoint'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {t('User Info Endpoint (Optional)')}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={t('Override auto-discovered endpoint')}
-                          autoComplete='off'
                           value={field.value ?? ''}
                           onChange={(event) =>
                             field.onChange(event.target.value)

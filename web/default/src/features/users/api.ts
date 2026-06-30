@@ -153,23 +153,6 @@ export async function getGroups(): Promise<ApiResponse<string[]>> {
 // Admin Binding Management APIs
 // ============================================================================
 
-export interface OAuthBinding {
-  provider_id: string
-  provider_name: string
-  user_id?: number
-  external_id?: string
-}
-
-/**
- * Get user's custom OAuth bindings (admin)
- */
-export async function getUserOAuthBindings(
-  userId: number
-): Promise<ApiResponse<OAuthBinding[]>> {
-  const res = await api.get(`/api/user/${userId}/oauth/bindings`)
-  return res.data
-}
-
 /**
  * Clear a user's built-in binding (admin)
  */

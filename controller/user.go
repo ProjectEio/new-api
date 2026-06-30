@@ -99,10 +99,6 @@ func loginMethodFromContext(c *gin.Context) string {
 		return "2fa"
 	case "/api/user/passkey/login/finish":
 		return "passkey"
-	case "/api/oauth/wechat":
-		return "wechat"
-	case "/api/oauth/telegram/login":
-		return "telegram"
 	case "/api/oauth/:provider":
 		if provider := c.Param("provider"); provider != "" {
 			return "oauth:" + provider
@@ -456,8 +452,6 @@ func GetSelf(c *gin.Context) {
 		"status":            user.Status,
 		"email":             user.Email,
 		"github_id":         user.GitHubId,
-		"wechat_id":         user.WeChatId,
-		"telegram_id":       user.TelegramId,
 		"group":             user.Group,
 		"quota":             user.Quota,
 		"used_quota":        user.UsedQuota,

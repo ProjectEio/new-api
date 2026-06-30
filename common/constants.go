@@ -89,8 +89,6 @@ var PasswordRegisterEnabled = true
 var EmailVerificationEnabled = false
 var GitHubOAuthEnabled = false
 var LinuxDOOAuthEnabled = false
-var WeChatAuthEnabled = false
-var TelegramOAuthEnabled = false
 var TurnstileCheckEnabled = false
 var RegisterEnabled = true
 
@@ -136,15 +134,8 @@ var LinuxDOClientId = ""
 var LinuxDOClientSecret = ""
 var LinuxDOMinimumTrustLevel = 0
 
-var WeChatServerAddress = ""
-var WeChatServerToken = ""
-var WeChatAccountQRCodeImageURL = ""
-
 var TurnstileSiteKey = ""
 var TurnstileSecretKey = ""
-
-var TelegramBotToken = ""
-var TelegramBotName = ""
 
 var QuotaForNewUser = 0
 var QuotaForInviter = 0

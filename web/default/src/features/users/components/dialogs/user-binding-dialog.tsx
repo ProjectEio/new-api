@@ -29,7 +29,7 @@ import {
   EyeOff,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { SiGithub, SiDiscord } from 'react-icons/si'
+import { SiGithub } from 'react-icons/si'
 import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -44,13 +44,7 @@ import {
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Dialog } from '@/components/dialog'
 import { StatusBadge } from '@/components/status-badge'
-import {
-  getUser,
-  getUserOAuthBindings,
-  adminClearUserBinding,
-  adminUnbindCustomOAuth,
-  type OAuthBinding,
-} from '../../api'
+import { getUser, adminClearUserBinding } from '../../api'
 import type { User } from '../../types'
 
 interface Props {
@@ -65,24 +59,15 @@ interface BindingItem {
   label: string
   icon: React.ReactNode
   value: string
-  type: 'builtin' | 'custom'
-  providerId?: string
   isBound: boolean
   isEnabled: boolean
 }
 
 interface StatusInfo {
   github_oauth?: boolean
-  discord_oauth?: boolean
-  oidc_enabled?: boolean
   wechat_login?: boolean
   telegram_oauth?: boolean
   linuxdo_oauth?: boolean
-  custom_oauth_providers?: Array<{
-    id: string
-    name: string
-    icon?: string
-  }>
 }
 
 const BUILTIN_BINDINGS: ReadonlyArray<{
@@ -107,25 +92,11 @@ const BUILTIN_BINDINGS: ReadonlyArray<{
     statusKey: 'github_oauth',
   },
   {
-    key: 'discord_id',
-    field: 'discord_id',
-    label: 'Discord',
-    icon: <SiDiscord className='h-4 w-4' />,
-    statusKey: 'discord_oauth',
-  },
-  {
     key: 'wechat_id',
     field: 'wechat_id',
     label: 'WeChat',
     icon: <MessageCircle className='h-4 w-4' />,
     statusKey: 'wechat_login',
-  },
-  {
-    key: 'oidc_id',
-    field: 'oidc_id',
-    label: 'OIDC',
-    icon: <Globe className='h-4 w-4' />,
-    statusKey: 'oidc_enabled',
   },
   {
     key: 'telegram_id',
@@ -143,24 +114,9 @@ const BUILTIN_BINDINGS: ReadonlyArray<{
   },
 ]
 
-function CustomProviderIcon(props: { iconUrl?: string }) {
-  if (!props.iconUrl) return <Link2 className='h-4 w-4' />
-  return (
-    <img
-      src={props.iconUrl}
-      alt=''
-      className='h-4 w-4 rounded-sm object-contain'
-      onError={(e) => {
-        e.currentTarget.style.display = 'none'
-      }}
-    />
-  )
-}
-
 export function UserBindingDialog(props: Props) {
   const { t } = useTranslation()
   const [user, setUser] = useState<User | null>(null)
-  const [oauthBindings, setOauthBindings] = useState<OAuthBinding[]>([])
   const [statusInfo, setStatusInfo] = useState<StatusInfo>({})
   const [loading, setLoading] = useState(false)
   const [showBoundOnly, setShowBoundOnly] = useState(true)
@@ -171,12 +127,8 @@ export function UserBindingDialog(props: Props) {
     if (!props.userId) return
     setLoading(true)
     try {
-      const [userRes, oauthRes, statusRes] = await Promise.all([
+      const [userRes, statusRes] = await Promise.all([
         getUser(props.userId),
-        getUserOAuthBindings(props.userId).catch(() => ({
-          success: false,
-          data: [],
-        })),
         api
           .get('/api/status')
           .then((r) => r.data)
@@ -187,9 +139,6 @@ export function UserBindingDialog(props: Props) {
       ])
       if (userRes.success && userRes.data) {
         setUser(userRes.data)
-      }
-      if (oauthRes.success && oauthRes.data) {
-        setOauthBindings(oauthRes.data as OAuthBinding[])
       }
       if (statusRes.success && statusRes.data) {
         setStatusInfo(statusRes.data as StatusInfo)
@@ -207,7 +156,6 @@ export function UserBindingDialog(props: Props) {
       fetchData()
     } else {
       setUser(null)
-      setOauthBindings([])
       setStatusInfo({})
     }
   }, [props.open, props.userId, fetchData])
@@ -228,51 +176,13 @@ export function UserBindingDialog(props: Props) {
         label: field.label,
         icon: field.icon,
         value: isBound ? value : '',
-        type: 'builtin',
         isBound,
         isEnabled,
       })
     }
 
-    const oauthBindingMap = new Map(
-      oauthBindings.map((b) => [String(b.provider_id), b])
-    )
-
-    const customProviders = statusInfo.custom_oauth_providers || []
-    const seenProviderIds = new Set<string>()
-
-    for (const provider of customProviders) {
-      seenProviderIds.add(String(provider.id))
-      const binding = oauthBindingMap.get(String(provider.id))
-      items.push({
-        key: `oauth_${provider.id}`,
-        label: provider.name || provider.id,
-        icon: <CustomProviderIcon iconUrl={provider.icon} />,
-        value: binding?.external_id || '',
-        type: 'custom',
-        providerId: String(provider.id),
-        isBound: !!binding,
-        isEnabled: true,
-      })
-    }
-
-    for (const binding of oauthBindings) {
-      if (!seenProviderIds.has(String(binding.provider_id))) {
-        items.push({
-          key: `oauth_${binding.provider_id}`,
-          label: binding.provider_name || binding.provider_id,
-          icon: <Link2 className='h-4 w-4' />,
-          value: binding.external_id || '-',
-          type: 'custom',
-          providerId: String(binding.provider_id),
-          isBound: true,
-          isEnabled: false,
-        })
-      }
-    }
-
     return items
-  }, [user, oauthBindings, statusInfo])
+  }, [user, statusInfo])
 
   const displayedBindings = showBoundOnly
     ? allBindings.filter((b) => b.isBound)
@@ -284,15 +194,7 @@ export function UserBindingDialog(props: Props) {
     if (!unbindTarget || !props.userId) return
     setUnbinding(true)
     try {
-      let res
-      if (unbindTarget.type === 'builtin') {
-        res = await adminClearUserBinding(props.userId, unbindTarget.key)
-      } else if (unbindTarget.providerId) {
-        res = await adminUnbindCustomOAuth(
-          props.userId,
-          unbindTarget.providerId
-        )
-      }
+      const res = await adminClearUserBinding(props.userId, unbindTarget.key)
       if (res?.success) {
         toast.success(
           t('Unbound {{provider}}', { provider: unbindTarget.label })

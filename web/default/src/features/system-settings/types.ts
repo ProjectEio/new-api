@@ -132,16 +132,6 @@ export type AuthSettings = {
   GitHubOAuthEnabled: boolean
   GitHubClientId: string
   GitHubClientSecret: string
-  'discord.enabled': boolean
-  'discord.client_id': string
-  'discord.client_secret': string
-  'oidc.enabled': boolean
-  'oidc.client_id': string
-  'oidc.client_secret': string
-  'oidc.well_known': string
-  'oidc.authorization_endpoint': string
-  'oidc.token_endpoint': string
-  'oidc.user_info_endpoint': string
   TelegramOAuthEnabled: boolean
   TelegramBotToken: string
   TelegramBotName: string
@@ -178,12 +168,6 @@ export type ContentSettings = {
   DataExportDefaultTime: string
   DataExportInterval: number
   Chats: string
-  DrawingEnabled: boolean
-  MjNotifyEnabled: boolean
-  MjAccountFilterEnabled: boolean
-  MjForwardUrlEnabled: boolean
-  MjModeClearEnabled: boolean
-  MjActionCheckSuccessEnabled: boolean
 }
 
 export type ModelSettings = {
