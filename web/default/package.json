@@ -4,13 +4,13 @@
   "private": false,
   "type": "module",
   "scripts": {
-    "dev": "rsbuild dev",
-    "build": "rsbuild build",
-    "build:check": "tsgo -b && rsbuild build",
+    "dev": "vite",
+    "build": "vite build",
+    "build:check": "tsgo -b && vite build",
     "typecheck": "tsgo -b",
     "lint": "oxlint -c .oxlintrc.json .",
     "lint:fix": "oxlint -c .oxlintrc.json . --fix",
-    "preview": "rsbuild preview",
+    "preview": "vite preview",
     "format:check": "node scripts/format-with-protected-headers.mjs --check",
     "format": "node scripts/format-with-protected-headers.mjs --write",
     "copyright:check": "node scripts/add-copyright.mjs --check",
@@ -75,8 +75,8 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
-    "@rsbuild/core": "^2.0.7",
-    "@rsbuild/plugin-react": "^2.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.0",
     "@tanstack/react-query-devtools": "^5.100.14",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/router-plugin": "^1.168.11",
@@ -90,18 +90,5 @@
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "shadcn": "^4.8.0"
-  },
-  "overrides": {
-    "brace-expansion": "2.1.1",
-    "dompurify": "3.4.11",
-    "fast-uri": "3.1.2",
-    "hono": "4.12.22",
-    "ip-address": "10.2.0",
-    "js-cookie": "3.0.7",
-    "mermaid": "11.15.0",
-    "minimist": "1.2.8",
-    "postcss": "8.5.15",
-    "qs": "6.15.2",
-    "uuid": "14.0.0"
   }
 }

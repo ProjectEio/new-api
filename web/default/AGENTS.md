@@ -10,7 +10,7 @@
 
 | 类别     | 技术 |
 |----------|------|
-| 包管理   | Bun |
+| 包管理   | pnpm |
 | 框架     | React 19、TypeScript |
 | 数据与请求 | @tanstack/react-query、axios、Zustand |
 | 路由     | @tanstack/react-router |
@@ -75,7 +75,7 @@
 - **表达式**：禁止 2 层及以上嵌套三元表达式；改用 `if-else`、提前返回或抽取函数。单层三元可保留，但需简洁。
 - **可读性**：控制函数圈复杂度，复杂逻辑拆成小函数；变量与函数命名需有意义，遵循驼峰等常规约定。
 - **TypeScript**：避免 `any`，优先具体类型或 `unknown`；为参数与返回值显式标注类型；仅类型用途的导入使用 `import type { X } from '...'`。
-- **类型检查**：每次改动 TypeScript 或 TSX 代码后都要执行类型检查（如 `bun run typecheck`）；若出现类型错误，须修复至无错误为止，不得遗留。
+- **类型检查**：每次改动 TypeScript 或 TSX 代码后都要执行类型检查（如 `pnpm run typecheck`）；若出现类型错误，须修复至无错误为止，不得遗留。
 - **解构**：对象非必要不要进行解构，特别是组件的 props；直接使用 `props.xxx` 更清晰，避免不必要的解构增加代码复杂度。
 
 ### 3.3 组件
@@ -151,12 +151,12 @@
 
 ### 3.15 依赖管理
 
-- 使用 **Bun**：`bun install`、`bun add <pkg>`、`bun add -d <pkg>`、`bun remove <pkg>`、`bun pm ls`、`bun update` 等。
+- 使用 **pnpm**：`pnpm install`、`pnpm add <pkg>`、`pnpm add -D <pkg>`、`pnpm remove <pkg>`、`pnpm ls`、`pnpm update` 等。
 - 新增依赖前评估维护情况、体积与许可；生产与开发依赖区分清楚，版本用 `^`/`~` 控制，定期更新以获取安全修复。
 
 ### 3.16 构建与部署
 
-- 使用 Rsbuild，配置见 `rsbuild.config.ts`；脚本以 `package.json` 为准（如 `bun run dev`、`bun run build`、`bun run typecheck`、`bun run lint`、`bun run format`），包管理见 [3.15 依赖管理](#315-依赖管理)。
+- 使用 Vite，配置见 `vite.config.ts`；脚本以 `package.json` 为准（如 `pnpm run dev`、`pnpm run build`、`pnpm run typecheck`、`pnpm run lint`、`pnpm run format`），包管理见 [3.15 依赖管理](#315-依赖管理)。
 - 代码分割与懒加载策略见 [3.4 性能](#34-性能)；资源使用合适格式与压缩，环境变量用 `.env` 且以 `VITE_` 前缀，不在代码中硬编码。
 - **发布前**：执行 typecheck、lint、format 检查，完成生产构建并检查产物体积与环境变量配置。
 
