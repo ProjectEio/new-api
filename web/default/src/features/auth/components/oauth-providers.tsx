@@ -18,12 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  IconDiscord,
-  IconGithub,
-  IconLinuxDo,
-  IconWeChat,
-} from '@/assets/brand-icons'
+import { IconGithub, IconLinuxDo, IconWeChat } from '@/assets/brand-icons'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useOAuthLogin } from '../hooks/use-oauth-login'
@@ -58,11 +53,8 @@ export function OAuthProviders({
     githubButtonText,
     githubButtonDisabled,
     handleGitHubLogin,
-    handleDiscordLogin,
-    handleOIDCLogin,
     handleLinuxDOLogin,
     handleTelegramLogin,
-    handleCustomOAuthLogin,
   } = useOAuthLogin(status)
 
   const providerButtons: ProviderButton[] = []
@@ -87,23 +79,6 @@ export function OAuthProviders({
     })
   }
 
-  if (status?.discord_oauth) {
-    providerButtons.push({
-      key: 'discord',
-      label: t('Continue with Discord'),
-      onClick: handleDiscordLogin,
-      icon: <IconDiscord className='h-4 w-4' />,
-    })
-  }
-
-  if (status?.oidc_enabled) {
-    providerButtons.push({
-      key: 'oidc',
-      label: t('Continue with OIDC'),
-      onClick: handleOIDCLogin,
-    })
-  }
-
   if (status?.linuxdo_oauth) {
     providerButtons.push({
       key: 'linuxdo',
@@ -119,18 +94,6 @@ export function OAuthProviders({
       label: t('Continue with Telegram'),
       onClick: handleTelegramLogin,
     })
-  }
-
-  // Custom OAuth providers
-  const customProviders = status?.custom_oauth_providers
-  if (customProviders && customProviders.length > 0) {
-    for (const provider of customProviders) {
-      providerButtons.push({
-        key: `custom-${provider.slug}`,
-        label: t('Continue with {{name}}', { name: provider.name }),
-        onClick: () => handleCustomOAuthLogin(provider),
-      })
-    }
   }
 
   if (providerButtons.length === 0) return null

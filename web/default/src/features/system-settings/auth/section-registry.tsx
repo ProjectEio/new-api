@@ -20,7 +20,6 @@ import type { AuthSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { BasicAuthSection } from './basic-auth-section'
 import { BotProtectionSection } from './bot-protection-section'
-import { CustomOAuthSection } from './custom-oauth/custom-oauth-section'
 import { OAuthSection } from './oauth-section'
 import { PasskeySection } from './passkey-section'
 
@@ -51,17 +50,6 @@ const AUTH_SECTIONS = [
           GitHubOAuthEnabled: settings.GitHubOAuthEnabled,
           GitHubClientId: settings.GitHubClientId,
           GitHubClientSecret: settings.GitHubClientSecret,
-          'discord.enabled': settings['discord.enabled'],
-          'discord.client_id': settings['discord.client_id'],
-          'discord.client_secret': settings['discord.client_secret'],
-          'oidc.enabled': settings['oidc.enabled'],
-          'oidc.client_id': settings['oidc.client_id'],
-          'oidc.client_secret': settings['oidc.client_secret'],
-          'oidc.well_known': settings['oidc.well_known'],
-          'oidc.authorization_endpoint':
-            settings['oidc.authorization_endpoint'],
-          'oidc.token_endpoint': settings['oidc.token_endpoint'],
-          'oidc.user_info_endpoint': settings['oidc.user_info_endpoint'],
           TelegramOAuthEnabled: settings.TelegramOAuthEnabled,
           TelegramBotToken: settings.TelegramBotToken,
           TelegramBotName: settings.TelegramBotName,
@@ -111,11 +99,6 @@ const AUTH_SECTIONS = [
         }}
       />
     ),
-  },
-  {
-    id: 'custom-oauth',
-    titleKey: 'Custom OAuth',
-    build: () => <CustomOAuthSection />,
   },
 ] as const
 
