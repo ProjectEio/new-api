@@ -134,16 +134,11 @@ export function useOAuthLogin(status: SystemStatus | null) {
     }
   }
 
-  const handleTelegramLogin = () => {
-    toast.info(t('Telegram login requires widget integration; coming soon'))
-  }
-
   return {
     isLoading,
     githubButtonText,
     githubButtonDisabled,
     handleGitHubLogin,
     handleLinuxDOLogin,
-    handleTelegramLogin,
   }
 }

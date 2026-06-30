@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { IconGithub, IconLinuxDo, IconWeChat } from '@/assets/brand-icons'
+import { IconGithub, IconLinuxDo } from '@/assets/brand-icons'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useOAuthLogin } from '../hooks/use-oauth-login'
@@ -28,8 +28,6 @@ type OAuthProvidersProps = {
   status: SystemStatus | null
   disabled?: boolean
   className?: string
-  onWeChatLogin?: () => void
-  isWeChatLoading?: boolean
 }
 
 type ProviderButton = {
@@ -44,8 +42,6 @@ export function OAuthProviders({
   status,
   disabled = false,
   className,
-  onWeChatLogin,
-  isWeChatLoading = false,
 }: OAuthProvidersProps) {
   const { t } = useTranslation()
   const {
@@ -54,20 +50,9 @@ export function OAuthProviders({
     githubButtonDisabled,
     handleGitHubLogin,
     handleLinuxDOLogin,
-    handleTelegramLogin,
   } = useOAuthLogin(status)
 
   const providerButtons: ProviderButton[] = []
-
-  if (status?.wechat_login && onWeChatLogin) {
-    providerButtons.push({
-      key: 'wechat',
-      label: t('Continue with WeChat'),
-      onClick: onWeChatLogin,
-      icon: <IconWeChat className='h-4 w-4' />,
-      disabled: isWeChatLoading,
-    })
-  }
 
   if (status?.github_oauth) {
     providerButtons.push({
@@ -85,14 +70,6 @@ export function OAuthProviders({
       label: t('Continue with LinuxDO'),
       onClick: handleLinuxDOLogin,
       icon: <IconLinuxDo className='h-4 w-4' />,
-    })
-  }
-
-  if (status?.telegram_oauth) {
-    providerButtons.push({
-      key: 'telegram',
-      label: t('Continue with Telegram'),
-      onClick: handleTelegramLogin,
     })
   }
 
