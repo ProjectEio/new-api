@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
-import { Loader2, Send, Shield, UserRound, type LucideIcon } from 'lucide-react'
+import { Loader2, Send, UserRound, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { SiGithub, SiLinux, SiWechat } from 'react-icons/si'
 import { AuthLayout } from '../auth-layout'
@@ -39,7 +39,6 @@ const providerDictionary: Record<string, ProviderMeta> = {
       <SiGithub className={props.className} focusable='false' />
     ),
   },
-  oidc: { label: 'OIDC', Icon: Shield },
   linuxdo: {
     label: 'LinuxDO',
     Icon: (props: { className?: string }) => (

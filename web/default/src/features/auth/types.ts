@@ -94,11 +94,6 @@ export interface SystemStatus {
     logo?: string
     github_oauth?: boolean
     github_client_id?: string
-    discord_oauth?: boolean
-    discord_client_id?: string
-    oidc_enabled?: boolean
-    oidc_authorization_endpoint?: string
-    oidc_client_id?: string
     linuxdo_oauth?: boolean
     linuxdo_client_id?: string
     telegram_oauth?: boolean
@@ -128,7 +123,6 @@ export interface SystemStatus {
     register_enabled?: boolean
     password_login_enabled?: boolean
     password_register_enabled?: boolean
-    custom_oauth_providers?: CustomOAuthProviderInfo[]
     [key: string]: unknown
   }
   // Allow direct access to common properties
@@ -137,11 +131,6 @@ export interface SystemStatus {
   logo?: string
   github_oauth?: boolean
   github_client_id?: string
-  discord_oauth?: boolean
-  discord_client_id?: string
-  oidc_enabled?: boolean
-  oidc_authorization_endpoint?: string
-  oidc_client_id?: string
   linuxdo_oauth?: boolean
   linuxdo_client_id?: string
   telegram_oauth?: boolean
@@ -171,7 +160,6 @@ export interface SystemStatus {
   register_enabled?: boolean
   password_login_enabled?: boolean
   password_register_enabled?: boolean
-  custom_oauth_providers?: CustomOAuthProviderInfo[]
   [key: string]: unknown
 }
 
@@ -181,20 +169,10 @@ export interface SystemStatus {
 
 export interface OAuthProvider {
   name: string
-  type: 'github' | 'discord' | 'oidc' | 'linuxdo' | 'telegram' | 'wechat'
+  type: 'github' | 'linuxdo' | 'telegram' | 'wechat'
   enabled: boolean
   clientId?: string
   authEndpoint?: string
-}
-
-export interface CustomOAuthProviderInfo {
-  id: number
-  name: string
-  slug: string
-  icon: string
-  client_id: string
-  authorization_endpoint: string
-  scopes: string
 }
 
 // ============================================================================

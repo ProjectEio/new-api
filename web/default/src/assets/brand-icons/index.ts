@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-export { IconDiscord } from './icon-discord'
 export { IconDocker } from './icon-docker'
 export { IconFacebook } from './icon-facebook'
 export { IconFigma } from './icon-figma'

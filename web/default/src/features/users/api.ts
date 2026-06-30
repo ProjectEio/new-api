@@ -180,16 +180,3 @@ export async function adminClearUserBinding(
   const res = await api.delete(`/api/user/${userId}/bindings/${bindingType}`)
   return res.data
 }
-
-/**
- * Unbind custom OAuth for a user (admin)
- */
-export async function adminUnbindCustomOAuth(
-  userId: number,
-  providerId: string
-): Promise<ApiResponse> {
-  const res = await api.delete(
-    `/api/user/${userId}/oauth/bindings/${providerId}`
-  )
-  return res.data
-}

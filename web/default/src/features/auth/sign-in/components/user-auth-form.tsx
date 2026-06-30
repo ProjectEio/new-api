@@ -97,11 +97,8 @@ export function UserAuthForm({
   const hasWeChatLogin = Boolean(status?.wechat_login)
   const hasOAuthLogin = Boolean(
     status?.github_oauth ||
-    status?.discord_oauth ||
-    status?.oidc_enabled ||
     status?.linuxdo_oauth ||
-    status?.telegram_oauth ||
-    (status?.custom_oauth_providers?.length ?? 0) > 0
+    status?.telegram_oauth
   )
   const hasAlternativeLogin =
     passkeyLoginEnabled || hasWeChatLogin || hasOAuthLogin

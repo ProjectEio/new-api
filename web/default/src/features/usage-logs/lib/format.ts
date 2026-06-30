@@ -329,10 +329,6 @@ const AUDIT_TEMPLATES: Record<string, string> = {
   'option.payment_compliance': 'Confirmed payment compliance',
   'option.reset_ratio': 'Reset model ratios',
   'option.clear_affinity_cache': 'Cleared channel affinity cache',
-  // Custom OAuth
-  'custom_oauth.create': 'Created a custom OAuth provider',
-  'custom_oauth.update': 'Updated a custom OAuth provider',
-  'custom_oauth.delete': 'Deleted a custom OAuth provider',
   // Performance / cache
   'performance.clear_disk_cache': 'Cleared disk cache',
   'performance.gc': 'Triggered garbage collection',

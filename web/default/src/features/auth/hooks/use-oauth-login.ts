@@ -23,13 +23,8 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
 import { api } from '@/lib/api'
 import { getOAuthState } from '../api'
-import {
-  buildGitHubOAuthUrl,
-  buildDiscordOAuthUrl,
-  buildOIDCOAuthUrl,
-  buildLinuxDOOAuthUrl,
-} from '../lib/oauth'
-import type { SystemStatus, CustomOAuthProviderInfo } from '../types'
+import { buildGitHubOAuthUrl, buildLinuxDOOAuthUrl } from '../lib/oauth'
+import type { SystemStatus } from '../types'
 
 type LogoutRequestConfig = AxiosRequestConfig & {
   skipErrorHandler?: boolean
@@ -118,52 +113,6 @@ export function useOAuthLogin(status: SystemStatus | null) {
     }
   }
 
-  const handleDiscordLogin = async () => {
-    if (!status?.discord_client_id) return
-
-    setIsLoading(true)
-    try {
-      await resetSession()
-      const state = await getOAuthState()
-      if (!state) {
-        toast.error(t('Failed to initialize OAuth'))
-        return
-      }
-
-      const url = buildDiscordOAuthUrl(status.discord_client_id, state)
-      window.open(url, '_self')
-    } catch (_error) {
-      toast.error(t('Failed to start Discord login'))
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleOIDCLogin = async () => {
-    if (!status?.oidc_authorization_endpoint || !status?.oidc_client_id) return
-
-    setIsLoading(true)
-    try {
-      await resetSession()
-      const state = await getOAuthState()
-      if (!state) {
-        toast.error(t('Failed to initialize OAuth'))
-        return
-      }
-
-      const url = buildOIDCOAuthUrl(
-        status.oidc_authorization_endpoint,
-        status.oidc_client_id,
-        state
-      )
-      window.open(url, '_self')
-    } catch (_error) {
-      toast.error(t('Failed to start OIDC login'))
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const handleLinuxDOLogin = async () => {
     if (!status?.linuxdo_client_id) return
 
@@ -189,47 +138,12 @@ export function useOAuthLogin(status: SystemStatus | null) {
     toast.info(t('Telegram login requires widget integration; coming soon'))
   }
 
-  const handleCustomOAuthLogin = async (provider: CustomOAuthProviderInfo) => {
-    if (!provider.authorization_endpoint || !provider.client_id) return
-
-    setIsLoading(true)
-    try {
-      await resetSession()
-      const state = await getOAuthState()
-      if (!state) {
-        toast.error(t('Failed to initialize OAuth'))
-        return
-      }
-
-      const redirectUri = `${window.location.origin}/oauth/${provider.slug}`
-      const url = new URL(provider.authorization_endpoint)
-      url.searchParams.set('client_id', provider.client_id)
-      url.searchParams.set('redirect_uri', redirectUri)
-      url.searchParams.set('response_type', 'code')
-      url.searchParams.set('state', state)
-      if (provider.scopes) {
-        url.searchParams.set('scope', provider.scopes)
-      }
-
-      window.open(url.toString(), '_self')
-    } catch (_error) {
-      toast.error(
-        t('Failed to start {{provider}} login', { provider: provider.name })
-      )
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   return {
     isLoading,
     githubButtonText,
     githubButtonDisabled,
     handleGitHubLogin,
-    handleDiscordLogin,
-    handleOIDCLogin,
     handleLinuxDOLogin,
     handleTelegramLogin,
-    handleCustomOAuthLogin,
   }
 }
