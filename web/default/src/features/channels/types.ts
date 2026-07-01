@@ -377,7 +377,10 @@ export interface ChannelFormData {
 
 export interface AddChannelRequest {
   mode: 'single' | 'batch' | 'multi_to_single'
-  multi_key_mode?: 'random' | 'polling'
+  multi_key_mode?: 'random' | 'polling' | 'sticky'
+  multi_key_error_threshold?: number
+  multi_key_recovery_seconds?: number
+  multi_key_max_recovery_fails?: number
   batch_add_set_key_prefix_2_name?: boolean
   channel: Partial<Channel>
 }

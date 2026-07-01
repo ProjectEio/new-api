@@ -53,11 +53,6 @@ export function useSidebarData(): SidebarData {
         title: t('Chat'),
         items: [
           {
-            title: t('Playground'),
-            url: '/playground',
-            icon: FlaskConical,
-          },
-          {
             title: t('Chat'),
             icon: MessageSquare,
             type: 'chat-presets',

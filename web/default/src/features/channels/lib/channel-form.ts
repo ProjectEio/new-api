@@ -181,10 +181,12 @@ export const channelFormSchema = z
     // Multi-key options (not sent to backend directly)
     multi_key_mode: z.enum(['single', 'batch', 'multi_to_single']).optional(),
     multi_key_type: z.enum(['random', 'polling', 'sticky']).optional(),
-    // Sticky multi-key strategy config (optional; backend uses defaults when unset)
-    multi_key_error_threshold: z.coerce.number().int().min(0).optional(),
-    multi_key_recovery_seconds: z.coerce.number().int().min(0).optional(),
-    multi_key_max_recovery_fails: z.coerce.number().int().min(0).optional(),
+    // Sticky multi-key strategy config (optional; backend uses defaults when unset).
+    // Plain z.number() (not z.coerce) keeps the schema's input/output types identical so the
+    // form resolver/Control types stay aligned; the number inputs already coerce in onChange.
+    multi_key_error_threshold: z.number().int().min(0).optional(),
+    multi_key_recovery_seconds: z.number().int().min(0).optional(),
+    multi_key_max_recovery_fails: z.number().int().min(0).optional(),
     batch_add_set_key_prefix_2_name: z.boolean().optional(),
     key_mode: z.enum(['append', 'replace']).optional(), // For editing multi-key channels
     // Channel extra settings (stored in setting JSON, not sent directly)
