@@ -82,12 +82,12 @@ func UpdateGroupRatioByJSONString(jsonStr string) error {
 }
 
 func GetGroupRatio(name string) float64 {
-	ratio, ok := groupRatioMap.Get(name)
-	if !ok {
-		common.SysLog("group ratio not found: " + name)
-		return 1
+	// 组倍率并入中央分组注册表：此处以注册表为准。
+	if e, ok := groupRegistryMap.Get(name); ok {
+		return e.Ratio
 	}
-	return ratio
+	common.SysLog("group ratio not found: " + name)
+	return 1
 }
 
 func GetGroupGroupRatio(userGroup, usingGroup string) (float64, bool) {

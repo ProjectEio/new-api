@@ -36,6 +36,9 @@ type User struct {
 	UsedQuota        int            `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
 	RequestCount     int            `json:"request_count" gorm:"type:int;default:0;"`               // request number
 	Group            string         `json:"group" gorm:"type:varchar(64);default:'default'"`
+	// AccessibleGroups 账号可访问的分组名列表（JSON 数组），是访问权限的唯一来源。
+	// 套餐激活时把套餐授予的分组并入此列表，到期移除。
+	AccessibleGroups string         `json:"accessible_groups" gorm:"type:text"`
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
@@ -46,13 +49,14 @@ type User struct {
 
 func (user *User) ToBaseUser() *UserBase {
 	cache := &UserBase{
-		Id:       user.Id,
-		Group:    user.Group,
-		Quota:    user.Quota,
-		Status:   user.Status,
-		Username: user.Username,
-		Setting:  user.Setting,
-		Email:    user.Email,
+		Id:               user.Id,
+		Group:            user.Group,
+		Quota:            user.Quota,
+		Status:           user.Status,
+		Username:         user.Username,
+		Setting:          user.Setting,
+		Email:            user.Email,
+		AccessibleGroups: user.AccessibleGroups,
 	}
 	return cache
 }
@@ -66,6 +70,58 @@ func (user *User) GetAccessToken() string {
 
 func (user *User) SetAccessToken(token string) {
 	user.AccessToken = &token
+}
+
+// GetAccessibleGroups 返回账号可访问的分组名列表。
+func (user *User) GetAccessibleGroups() []string {
+	return parseGroupList(user.AccessibleGroups)
+}
+
+// SetAccessibleGroups 设置账号可访问的分组名列表（去重、去空）。
+func (user *User) SetAccessibleGroups(groups []string) {
+	user.AccessibleGroups = marshalGroupList(groups)
+}
+
+// parseGroupList 解析分组名列表：优先按 JSON 数组，兼容历史逗号分隔。
+func parseGroupList(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return []string{}
+	}
+	var groups []string
+	if err := common.Unmarshal([]byte(raw), &groups); err != nil {
+		groups = strings.Split(raw, ",")
+	}
+	return dedupeStrings(groups)
+}
+
+// marshalGroupList 序列化分组名列表为 JSON 数组（空列表存空串）。
+func marshalGroupList(groups []string) string {
+	cleaned := dedupeStrings(groups)
+	if len(cleaned) == 0 {
+		return ""
+	}
+	b, err := common.Marshal(cleaned)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func dedupeStrings(in []string) []string {
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s = strings.TrimSpace(s); s == "" {
+			continue
+		}
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
 }
 
 func (user *User) GetSetting() dto.UserSetting {

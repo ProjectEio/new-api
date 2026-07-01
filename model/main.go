@@ -305,6 +305,9 @@ func migrateDB() error {
 			return err
 		}
 	}
+	if err := SeedDefaultSubscriptionPlans(); err != nil {
+		common.SysError("seed default subscription plans failed: " + err.Error())
+	}
 	return nil
 }
 

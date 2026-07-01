@@ -22,6 +22,30 @@ type UserBase struct {
 	Status   int    `json:"status"`
 	Username string `json:"username"`
 	Setting  string `json:"setting"`
+	// AccessibleGroups 账号可访问分组名（JSON 数组），访问鉴权的唯一来源。
+	AccessibleGroups string `json:"accessible_groups"`
+}
+
+// GetAccessibleGroups 返回账号可访问分组名列表（含账号自身分组，始终可用）。
+func (user *UserBase) GetAccessibleGroups() []string {
+	groups := parseGroupList(user.AccessibleGroups)
+	if user.Group != "" {
+		groups = dedupeStrings(append(groups, user.Group))
+	}
+	return groups
+}
+
+// CanAccessGroup 账号是否可访问指定分组（账号自身分组始终可用）。
+func (user *UserBase) CanAccessGroup(group string) bool {
+	if group == "" || group == user.Group {
+		return true
+	}
+	for _, g := range parseGroupList(user.AccessibleGroups) {
+		if g == group {
+			return true
+		}
+	}
+	return false
 }
 
 func (user *UserBase) WriteContext(c *gin.Context) {

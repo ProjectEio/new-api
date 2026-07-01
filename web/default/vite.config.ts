@@ -69,6 +69,8 @@ export default defineConfig(({ mode }) => {
             // Heavy charting stack — isolate so it caches independently and
             // only loads with the (route-split) dashboard.
             if (/[\\/]@visactor[\\/]/.test(id)) return 'vendor-charts'
+            // Curated provider icons (shared across channels/pricing/models).
+            if (/[\\/]@lobehub[\\/]/.test(id)) return 'vendor-icons'
             // Markdown/math rendering used by chat & pricing.
             if (/[\\/](streamdown|marked|katex)[\\/]/.test(id))
               return 'vendor-markdown'

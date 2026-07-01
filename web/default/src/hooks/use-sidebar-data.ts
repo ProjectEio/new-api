@@ -21,7 +21,6 @@ import {
   Box,
   CreditCard,
   FileText,
-  FlaskConical,
   Key,
   LayoutDashboard,
   MessageSquare,

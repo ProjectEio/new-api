@@ -18,61 +18,98 @@ For commercial licensing, please contact support@quantumnous.com
 */
 /* eslint-disable react-refresh/only-export-components */
 /**
- * LobeHub Icon Loader
+ * LobeHub Icon Loader (curated)
  *
- * `@lobehub/icons` is ~12MB because admins can reference *any* provider icon
- * by name (free-text field), so the whole package is pulled via a wildcard.
- * To keep that weight off the critical path, the package is loaded lazily on
- * first render via dynamic import — the module is fetched once, cached, and
- * shared across every icon.
+ * The full `@lobehub/icons` package is ~12MB. Since this build serves a fixed
+ * set of providers, only a curated set of provider/model-family icons is
+ * imported statically (tree-shaken) instead of pulling the whole package via a
+ * wildcard. Icons are resolved by name; names outside the curated set fall back
+ * to a neutral letter placeholder.
+ *
+ * To support a new icon, add its `@lobehub/icons` export to CURATED_ICONS.
  *
  * Supports:
  * - Basic: "OpenAI", "OpenAI.Color"
  * - Chained properties: "OpenAI.Avatar.type={'platform'}"
  * - Size parameter: getLobeIcon("OpenAI", 20)
  */
-import { useEffect, useState } from 'react'
+import {
+  Ai360,
+  Anthropic,
+  Aws,
+  Azure,
+  Baidu,
+  ChatGLM,
+  Claude,
+  Cloudflare,
+  Cohere,
+  DeepSeek,
+  Doubao,
+  Gemini,
+  Google,
+  Grok,
+  Groq,
+  HuggingFace,
+  Hunyuan,
+  Kimi,
+  Meta,
+  Microsoft,
+  Minimax,
+  Mistral,
+  Moonshot,
+  NewAPI,
+  Nvidia,
+  Ollama,
+  OpenAI,
+  OpenRouter,
+  Perplexity,
+  Qwen,
+  Spark,
+  Volcengine,
+  Wenxin,
+  XAI,
+  Yi,
+  Zhipu,
+} from '@lobehub/icons'
 
-type LobeModule = typeof import('@lobehub/icons')
-
-let lobeModule: LobeModule | null = null
-let lobePromise: Promise<LobeModule> | null = null
-
-function loadLobeModule(): Promise<LobeModule> {
-  if (!lobePromise) {
-    lobePromise = import('@lobehub/icons')
-      .then((m) => {
-        lobeModule = m
-        return m
-      })
-      .catch((err) => {
-        // Allow a later retry if the chunk failed to load.
-        lobePromise = null
-        throw err
-      })
-  }
-  return lobePromise
-}
-
-function useLobeModule(): LobeModule | null {
-  const [mod, setMod] = useState<LobeModule | null>(lobeModule)
-
-  useEffect(() => {
-    if (mod) return
-    let active = true
-    loadLobeModule()
-      .then((m) => {
-        if (active) setMod(m)
-      })
-      .catch(() => {
-        // Swallow load errors; the fallback placeholder stays rendered.
-      })
-    return () => {
-      active = false
-    }
-  }, [mod])
-
-  return mod
+// Curated provider / model-family icons (kept providers + common families).
+const CURATED_ICONS: Record<string, unknown> = {
+  Ai360,
+  Anthropic,
+  Aws,
+  Azure,
+  Baidu,
+  ChatGLM,
+  Claude,
+  Cloudflare,
+  Cohere,
+  DeepSeek,
+  Doubao,
+  Gemini,
+  Google,
+  Grok,
+  Groq,
+  HuggingFace,
+  Hunyuan,
+  Kimi,
+  Meta,
+  Microsoft,
+  Minimax,
+  Mistral,
+  Moonshot,
+  NewAPI,
+  Nvidia,
+  Ollama,
+  OpenAI,
+  OpenRouter,
+  Perplexity,
+  Qwen,
+  Spark,
+  Volcengine,
+  Wenxin,
+  XAI,
+  Yi,
+  Zhipu,
 }
 
 /**
@@ -121,7 +158,7 @@ function FallbackIcon({ size, char }: { size: number; char: string }) {
 }
 
 function resolveLobeIcon(
-  LobeIcons: LobeModule,
+  icons: Record<string, unknown>,
   iconName: string,
   size: number
 ): React.ReactNode {
@@ -130,9 +167,7 @@ function resolveLobeIcon(
   // Parse component path and chained properties
   const segments = trimmedName.split('.')
   const baseKey = segments[0]
-  const BaseIcon = (LobeIcons as Record<string, unknown>)[baseKey] as
-    | Record<string, unknown>
-    | undefined
+  const BaseIcon = icons[baseKey] as Record<string, unknown> | undefined
 
   let IconComponent: React.ComponentType<Record<string, unknown>> | undefined
   let propStartIndex: number
@@ -143,7 +178,7 @@ function resolveLobeIcon(
     >
     propStartIndex = 2
   } else {
-    IconComponent = (LobeIcons as Record<string, unknown>)[baseKey] as
+    IconComponent = icons[baseKey] as
       | React.ComponentType<Record<string, unknown>>
       | undefined
     propStartIndex = segments.length > 1 && /^[A-Z]/.test(segments[1]) ? 2 : 1
@@ -186,7 +221,7 @@ function resolveLobeIcon(
 }
 
 /**
- * Render a LobeHub icon, lazy-loading the icon package on first mount.
+ * Render a LobeHub icon from the curated set.
  */
 export function LobeIcon({
   name,
@@ -195,25 +230,17 @@ export function LobeIcon({
   name?: string | null
   size?: number
 }): React.ReactNode {
-  const mod = useLobeModule()
-
   const trimmedName = typeof name === 'string' ? name.trim() : ''
   if (!trimmedName) {
     return <FallbackIcon size={size} char='?' />
   }
 
-  // While the package is still loading, reserve the space with a neutral
-  // placeholder so layout does not shift once the icon resolves.
-  if (!mod) {
-    return <FallbackIcon size={size} char='' />
-  }
-
-  return resolveLobeIcon(mod, trimmedName, size)
+  return resolveLobeIcon(CURATED_ICONS, trimmedName, size)
 }
 
 /**
  * Get LobeHub icon node by name. Returns a `<LobeIcon>` element so existing
- * call sites keep working unchanged while the heavy package loads lazily.
+ * call sites keep working unchanged.
  *
  * @example
  * getLobeIcon("OpenAI", 24)

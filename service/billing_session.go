@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -390,6 +391,31 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		// 必须传 subConsume 而非 preConsumedQuota，保证 SubscriptionFunding.amount、
 		// preConsume 参数和 FinalPreConsumedQuota 三者一致，避免订阅多扣费。
 		if apiErr := session.preConsume(c, int(subConsume)); apiErr != nil {
+			return nil, apiErr
+		}
+		return session, nil
+	}
+
+	// 分组禁止余额消费：强制走套餐额度，无可用套餐额度则拒绝并提示“无可用套餐”。
+	if ratio_setting.GroupDisablesBalanceConsume(relayInfo.UsingGroup) {
+		noPlan := func() *types.NewAPIError {
+			return types.NewErrorWithStatusCode(
+				fmt.Errorf("无可用套餐"),
+				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
+				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+		}
+		hasSub, subCheckErr := model.HasActiveUserSubscription(relayInfo.UserId)
+		if subCheckErr != nil {
+			return nil, types.NewError(subCheckErr, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+		}
+		if !hasSub {
+			return nil, noPlan()
+		}
+		session, apiErr := trySubscription()
+		if apiErr != nil {
+			if apiErr.GetErrorCode() == types.ErrorCodeInsufficientUserQuota {
+				return nil, noPlan()
+			}
 			return nil, apiErr
 		}
 		return session, nil

@@ -18,6 +18,8 @@ type Redemption struct {
 	Status       int            `json:"status" gorm:"default:1"`
 	Name         string         `json:"name" gorm:"index"`
 	Quota        int            `json:"quota" gorm:"default:100"`
+	// PlanId 关联的订阅套餐（0=普通额度码；>0=兑换即激活该套餐）。
+	PlanId       int            `json:"plan_id" gorm:"default:0"`
 	CreatedTime  int64          `json:"created_time" gorm:"bigint"`
 	RedeemedTime int64          `json:"redeemed_time" gorm:"bigint"`
 	Count        int            `json:"count" gorm:"-:all"` // only for api request
@@ -137,9 +139,23 @@ func Redeem(key string, userId int) (quota int, err error) {
 		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
 			return errors.New("该兑换码已过期")
 		}
-		err = tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error
-		if err != nil {
-			return err
+		if redemption.Quota != 0 {
+			err = tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error
+			if err != nil {
+				return err
+			}
+		}
+		if redemption.PlanId > 0 {
+			var plan SubscriptionPlan
+			if err := tx.Where("id = ?", redemption.PlanId).First(&plan).Error; err != nil {
+				return errors.New("兑换码关联的套餐不存在")
+			}
+			if !plan.Enabled {
+				return errors.New("兑换码关联的套餐已停用")
+			}
+			if _, err := CreateUserSubscriptionFromPlanTx(tx, userId, &plan, "redemption"); err != nil {
+				return err
+			}
 		}
 		redemption.RedeemedTime = common.GetTimestamp()
 		redemption.Status = common.RedemptionCodeStatusUsed
@@ -151,7 +167,11 @@ func Redeem(key string, userId int) (quota int, err error) {
 		common.SysError("redemption failed: " + err.Error())
 		return 0, ErrRedeemFailed
 	}
-	RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %s，兑换码ID %d", logger.LogQuota(redemption.Quota), redemption.Id))
+	if redemption.PlanId > 0 {
+		RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码激活套餐，套餐ID %d，兑换码ID %d", redemption.PlanId, redemption.Id))
+	} else {
+		RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %s，兑换码ID %d", logger.LogQuota(redemption.Quota), redemption.Id))
+	}
 	return redemption.Quota, nil
 }
 

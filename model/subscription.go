@@ -174,6 +174,9 @@ type SubscriptionPlan struct {
 	// Downgrade user group on expiry (empty = revert to the group held before purchase)
 	DowngradeGroup string `json:"downgrade_group" gorm:"type:varchar(64);default:''"`
 
+	// GrantGroups 套餐授予的可访问分组名列表（JSON 数组）。激活时并入账号可访问集，到期移除。
+	GrantGroups string `json:"grant_groups" gorm:"type:text"`
+
 	// Total quota (amount in quota units, 0 = unlimited)
 	TotalAmount int64 `json:"total_amount" gorm:"type:bigint;not null;default:0"`
 
@@ -268,6 +271,9 @@ type UserSubscription struct {
 
 	// Downgrade target group on expiry (snapshot from plan; empty = revert to PrevUserGroup)
 	DowngradeGroup string `json:"downgrade_group" gorm:"type:varchar(64);default:''"`
+
+	// GrantedGroups 本订阅实际授予的可访问分组名快照（JSON 数组），到期据此移除。
+	GrantedGroups string `json:"granted_groups" gorm:"type:text"`
 
 	// Whether wallet fallback is allowed after this subscription's quota is exhausted (snapshot from plan)
 	AllowWalletOverflow bool `json:"allow_wallet_overflow"`
@@ -427,44 +433,141 @@ func downgradeUserGroupForSubscriptionTx(tx *gorm.DB, sub *UserSubscription, now
 	if tx == nil || sub == nil {
 		return "", errors.New("invalid downgrade args")
 	}
-	downgradeGroup := strings.TrimSpace(sub.DowngradeGroup)
-	upgradeGroup := strings.TrimSpace(sub.UpgradeGroup)
-	// Nothing to do if neither an explicit downgrade target nor an upgrade snapshot exists.
-	if downgradeGroup == "" && upgradeGroup == "" {
+	granted := sub.GetGrantedGroups()
+	if len(granted) == 0 {
 		return "", nil
 	}
-	currentGroup, err := getUserGroupByIdTx(tx, sub.UserId)
+	keep, err := groupsGrantedByOtherActiveSubsTx(tx, sub.UserId, sub.Id, now)
 	if err != nil {
 		return "", err
 	}
-	// If another active upgraded subscription exists, keep the current group.
-	var activeSub UserSubscription
-	activeQuery := tx.Where("user_id = ? AND status = ? AND end_time > ? AND id <> ? AND upgrade_group <> ''",
-		sub.UserId, "active", now, sub.Id).
-		Order("end_time desc, id desc").
-		Limit(1).
-		Find(&activeSub)
-	if activeQuery.Error == nil && activeQuery.RowsAffected > 0 {
-		return "", nil
-	}
-	// Determine the downgrade target: an explicit downgrade group takes precedence,
-	// otherwise revert to the group held before purchase (legacy behavior).
-	target := downgradeGroup
-	if target == "" {
-		// Legacy behavior: only revert when the subscription actually elevated the user.
-		if currentGroup != upgradeGroup {
-			return "", nil
-		}
-		target = strings.TrimSpace(sub.PrevUserGroup)
-	}
-	if target == "" || target == currentGroup {
-		return "", nil
-	}
-	if err := tx.Model(&User{}).Where("id = ?", sub.UserId).
-		Update("group", target).Error; err != nil {
+	if err := removeUserAccessibleGroupsTx(tx, sub.UserId, granted, keep); err != nil {
 		return "", err
 	}
-	return target, nil
+	return "", nil
+}
+
+// GetGrantGroups 返回套餐授予的可访问分组名列表。
+func (plan *SubscriptionPlan) GetGrantGroups() []string {
+	return parseGroupList(plan.GrantGroups)
+}
+
+// GetGrantedGroups 返回本订阅实际授予的可访问分组名快照。
+func (s *UserSubscription) GetGrantedGroups() []string {
+	return parseGroupList(s.GrantedGroups)
+}
+
+// SeedDefaultSubscriptionPlans 若当前没有任何套餐，则播种默认套餐（体验卡/周卡/月卡）。
+// 套餐额度按其人民币价值给足（¥ × QuotaPerUnit），并授予 vip 分组。
+func SeedDefaultSubscriptionPlans() error {
+	var count int64
+	if err := DB.Model(&SubscriptionPlan{}).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	now := common.GetTimestamp()
+	perYuan := int64(common.QuotaPerUnit)
+	grantVip := marshalGroupList([]string{"vip"})
+	plans := []SubscriptionPlan{
+		{Title: "体验卡", Subtitle: "2 天体验", PriceAmount: 5, Currency: "CNY", DurationUnit: SubscriptionDurationDay, DurationValue: 2, Enabled: true, SortOrder: 1, TotalAmount: 5 * perYuan, GrantGroups: grantVip, CreatedAt: now, UpdatedAt: now},
+		{Title: "周卡", Subtitle: "7 天", PriceAmount: 15, Currency: "CNY", DurationUnit: SubscriptionDurationDay, DurationValue: 7, Enabled: true, SortOrder: 2, TotalAmount: 15 * perYuan, GrantGroups: grantVip, CreatedAt: now, UpdatedAt: now},
+		{Title: "月卡", Subtitle: "30 天", PriceAmount: 45, Currency: "CNY", DurationUnit: SubscriptionDurationMonth, DurationValue: 1, Enabled: true, SortOrder: 3, TotalAmount: 45 * perYuan, GrantGroups: grantVip, CreatedAt: now, UpdatedAt: now},
+	}
+	if err := DB.Create(&plans).Error; err != nil {
+		return err
+	}
+	common.SysLog("seeded default subscription plans")
+	return nil
+}
+
+// addUserAccessibleGroupsTx 把一组分组并入用户可访问集合，返回实际新增的分组。
+func addUserAccessibleGroupsTx(tx *gorm.DB, userId int, groups []string) ([]string, error) {
+	groups = dedupeStrings(groups)
+	if len(groups) == 0 {
+		return nil, nil
+	}
+	var user User
+	if err := tx.Select("id", "accessible_groups").Where("id = ?", userId).First(&user).Error; err != nil {
+		return nil, err
+	}
+	existing := user.GetAccessibleGroups()
+	have := make(map[string]struct{}, len(existing))
+	for _, g := range existing {
+		have[g] = struct{}{}
+	}
+	added := make([]string, 0, len(groups))
+	for _, g := range groups {
+		if _, ok := have[g]; !ok {
+			existing = append(existing, g)
+			added = append(added, g)
+		}
+	}
+	if len(added) == 0 {
+		return nil, nil
+	}
+	user.SetAccessibleGroups(existing)
+	if err := tx.Model(&User{}).Where("id = ?", userId).
+		Update("accessible_groups", user.AccessibleGroups).Error; err != nil {
+		return nil, err
+	}
+	_ = invalidateUserCache(userId)
+	return added, nil
+}
+
+// removeUserAccessibleGroupsTx 从用户可访问集合移除一组分组，但保留仍被其它有效订阅授予的分组。
+func removeUserAccessibleGroupsTx(tx *gorm.DB, userId int, groups []string, keep map[string]struct{}) error {
+	groups = dedupeStrings(groups)
+	if len(groups) == 0 {
+		return nil
+	}
+	remove := make(map[string]struct{}, len(groups))
+	for _, g := range groups {
+		if _, kept := keep[g]; kept {
+			continue
+		}
+		remove[g] = struct{}{}
+	}
+	if len(remove) == 0 {
+		return nil
+	}
+	var user User
+	if err := tx.Select("id", "accessible_groups").Where("id = ?", userId).First(&user).Error; err != nil {
+		return err
+	}
+	existing := user.GetAccessibleGroups()
+	kept := make([]string, 0, len(existing))
+	for _, g := range existing {
+		if _, drop := remove[g]; drop {
+			continue
+		}
+		kept = append(kept, g)
+	}
+	user.SetAccessibleGroups(kept)
+	if err := tx.Model(&User{}).Where("id = ?", userId).
+		Update("accessible_groups", user.AccessibleGroups).Error; err != nil {
+		return err
+	}
+	_ = invalidateUserCache(userId)
+	return nil
+}
+
+// groupsGrantedByOtherActiveSubsTx 返回该用户其它有效订阅仍在授予的分组集合（用于到期时避免误删）。
+func groupsGrantedByOtherActiveSubsTx(tx *gorm.DB, userId int, excludeSubId int, now int64) (map[string]struct{}, error) {
+	var subs []UserSubscription
+	if err := tx.Select("id", "granted_groups").
+		Where("user_id = ? AND status = ? AND end_time > ? AND id <> ?", userId, "active", now, excludeSubId).
+		Find(&subs).Error; err != nil {
+		return nil, err
+	}
+	keep := make(map[string]struct{})
+	for i := range subs {
+		for _, g := range subs[i].GetGrantedGroups() {
+			keep[g] = struct{}{}
+		}
+	}
+	return keep, nil
 }
 
 func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string) (*UserSubscription, error) {
@@ -500,21 +603,7 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	if nextReset > 0 {
 		lastReset = now.Unix()
 	}
-	upgradeGroup := strings.TrimSpace(plan.UpgradeGroup)
-	prevGroup := ""
-	if upgradeGroup != "" {
-		currentGroup, err := getUserGroupByIdTx(tx, userId)
-		if err != nil {
-			return nil, err
-		}
-		if currentGroup != upgradeGroup {
-			prevGroup = currentGroup
-			if err := tx.Model(&User{}).Where("id = ?", userId).
-				Update("group", upgradeGroup).Error; err != nil {
-				return nil, err
-			}
-		}
-	}
+	grantGroups := plan.GetGrantGroups()
 	allowWalletOverflow := true
 	if plan.AllowWalletOverflow != nil {
 		allowWalletOverflow = *plan.AllowWalletOverflow
@@ -530,14 +619,16 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		Source:              source,
 		LastResetTime:       lastReset,
 		NextResetTime:       nextReset,
-		UpgradeGroup:        upgradeGroup,
-		PrevUserGroup:       prevGroup,
-		DowngradeGroup:      strings.TrimSpace(plan.DowngradeGroup),
+		GrantedGroups:       marshalGroupList(grantGroups),
 		AllowWalletOverflow: allowWalletOverflow,
 		CreatedAt:           common.GetTimestamp(),
 		UpdatedAt:           common.GetTimestamp(),
 	}
 	if err := tx.Create(sub).Error; err != nil {
+		return nil, err
+	}
+	// 套餐授予的分组并入账号可访问集合（到期时据 GrantedGroups 快照移除）。
+	if _, err := addUserAccessibleGroupsTx(tx, userId, grantGroups); err != nil {
 		return nil, err
 	}
 	return sub, nil

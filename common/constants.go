@@ -60,8 +60,8 @@ func ThemeAwarePath(suffix string) string {
 // var ChatLink = ""
 // var ChatLink2 = ""
 // QuotaPerUnit 内部额度点数与人民币的换算锚点：points / QuotaPerUnit = ¥。
-// 额度与人民币按 1:100 对应（¥1 = 100 额度，即 1 额度 = ¥0.01）。
-var QuotaPerUnit = 100.0
+// 额度与人民币按 1:1000000 对应（¥1 = 1,000,000 额度，即 1 额度 = ¥0.000001），用于细粒度计费。
+var QuotaPerUnit = 1000000.0
 
 // 保留旧变量以兼容历史逻辑，实际展示由 general_setting.quota_display_type 控制
 var DisplayInCurrencyEnabled = true
