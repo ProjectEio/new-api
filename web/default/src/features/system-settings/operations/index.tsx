@@ -43,7 +43,7 @@ const defaultOperationsSettings: OperationsSettings = {
   WorkerValidKey: '',
   WorkerAllowHttpImageRequestEnabled: false,
   LogConsumeEnabled: false,
-  'request_log_setting.enabled': false,
+  'request_log_setting.enabled': true,
   'request_log_setting.ip_source': 'auto',
   'request_log_setting.cdn_real_ip_header': '',
   'request_log_setting.record_user_agent': true,

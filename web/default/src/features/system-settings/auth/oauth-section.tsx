@@ -49,17 +49,10 @@ const oauthSchema = z.object({
   GitHubOAuthEnabled: z.boolean(),
   GitHubClientId: z.string(),
   GitHubClientSecret: z.string(),
-  TelegramOAuthEnabled: z.boolean(),
-  TelegramBotToken: z.string(),
-  TelegramBotName: z.string(),
   LinuxDOOAuthEnabled: z.boolean(),
   LinuxDOClientId: z.string(),
   LinuxDOClientSecret: z.string(),
   LinuxDOMinimumTrustLevel: z.string(),
-  WeChatAuthEnabled: z.boolean(),
-  WeChatServerAddress: z.string(),
-  WeChatServerToken: z.string(),
-  WeChatAccountQRCodeImageURL: z.string(),
 })
 
 type OAuthFormValues = z.infer<typeof oauthSchema>
@@ -68,17 +61,10 @@ type FlatOAuthDefaults = {
   GitHubOAuthEnabled: boolean
   GitHubClientId: string
   GitHubClientSecret: string
-  TelegramOAuthEnabled: boolean
-  TelegramBotToken: string
-  TelegramBotName: string
   LinuxDOOAuthEnabled: boolean
   LinuxDOClientId: string
   LinuxDOClientSecret: string
   LinuxDOMinimumTrustLevel: string
-  WeChatAuthEnabled: boolean
-  WeChatServerAddress: string
-  WeChatServerToken: string
-  WeChatAccountQRCodeImageURL: string
 }
 
 const oauthTabContentClassName =
@@ -88,34 +74,20 @@ const buildFormDefaults = (defaults: FlatOAuthDefaults): OAuthFormValues => ({
   GitHubOAuthEnabled: defaults.GitHubOAuthEnabled,
   GitHubClientId: defaults.GitHubClientId ?? '',
   GitHubClientSecret: defaults.GitHubClientSecret ?? '',
-  TelegramOAuthEnabled: defaults.TelegramOAuthEnabled,
-  TelegramBotToken: defaults.TelegramBotToken ?? '',
-  TelegramBotName: defaults.TelegramBotName ?? '',
   LinuxDOOAuthEnabled: defaults.LinuxDOOAuthEnabled,
   LinuxDOClientId: defaults.LinuxDOClientId ?? '',
   LinuxDOClientSecret: defaults.LinuxDOClientSecret ?? '',
   LinuxDOMinimumTrustLevel: defaults.LinuxDOMinimumTrustLevel ?? '',
-  WeChatAuthEnabled: defaults.WeChatAuthEnabled,
-  WeChatServerAddress: defaults.WeChatServerAddress ?? '',
-  WeChatServerToken: defaults.WeChatServerToken ?? '',
-  WeChatAccountQRCodeImageURL: defaults.WeChatAccountQRCodeImageURL ?? '',
 })
 
 const normalizeFormValues = (values: OAuthFormValues): FlatOAuthDefaults => ({
   GitHubOAuthEnabled: values.GitHubOAuthEnabled,
   GitHubClientId: values.GitHubClientId,
   GitHubClientSecret: values.GitHubClientSecret,
-  TelegramOAuthEnabled: values.TelegramOAuthEnabled,
-  TelegramBotToken: values.TelegramBotToken,
-  TelegramBotName: values.TelegramBotName,
   LinuxDOOAuthEnabled: values.LinuxDOOAuthEnabled,
   LinuxDOClientId: values.LinuxDOClientId,
   LinuxDOClientSecret: values.LinuxDOClientSecret,
   LinuxDOMinimumTrustLevel: values.LinuxDOMinimumTrustLevel,
-  WeChatAuthEnabled: values.WeChatAuthEnabled,
-  WeChatServerAddress: values.WeChatServerAddress,
-  WeChatServerToken: values.WeChatServerToken,
-  WeChatAccountQRCodeImageURL: values.WeChatAccountQRCodeImageURL,
 })
 
 type OAuthSectionProps = {
@@ -194,11 +166,9 @@ export function OAuthSection(props: OAuthSectionProps) {
             <FormDirtyIndicator isDirty={form.formState.isDirty} />
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className='grid w-full grid-cols-4'>
+              <TabsList className='grid w-full grid-cols-2'>
                 <TabsTrigger value='github'>{t('GitHub')}</TabsTrigger>
-                <TabsTrigger value='telegram'>{t('Telegram')}</TabsTrigger>
                 <TabsTrigger value='linuxdo'>{t('LinuxDO')}</TabsTrigger>
-                <TabsTrigger value='wechat'>{t('WeChat')}</TabsTrigger>
               </TabsList>
 
               <TabsContent value='github' className={oauthTabContentClassName}>
@@ -258,81 +228,6 @@ export function OAuthSection(props: OAuthSectionProps) {
                           type='password'
                           placeholder={t('Your GitHub OAuth Client Secret')}
                           autoComplete='new-password'
-                          value={field.value ?? ''}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          name={field.name}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </TabsContent>
-
-              <TabsContent
-                value='telegram'
-                className={oauthTabContentClassName}
-              >
-                <FormField
-                  control={form.control}
-                  name='TelegramOAuthEnabled'
-                  render={({ field }) => (
-                    <SettingsSwitchItem>
-                      <SettingsSwitchContent>
-                        <FormLabel>{t('Enable Telegram OAuth')}</FormLabel>
-                        <FormDescription>
-                          {t('Allow users to sign in with Telegram')}
-                        </FormDescription>
-                      </SettingsSwitchContent>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </SettingsSwitchItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='TelegramBotToken'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('Bot Token')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          type='password'
-                          placeholder={t('Your Telegram Bot Token')}
-                          autoComplete='new-password'
-                          value={field.value ?? ''}
-                          onChange={(event) =>
-                            field.onChange(event.target.value)
-                          }
-                          name={field.name}
-                          onBlur={field.onBlur}
-                          ref={field.ref}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='TelegramBotName'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('Bot Name')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={t('Your Bot Name')}
-                          autoComplete='off'
                           value={field.value ?? ''}
                           onChange={(event) =>
                             field.onChange(event.target.value)

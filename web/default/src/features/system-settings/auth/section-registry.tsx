@@ -50,17 +50,10 @@ const AUTH_SECTIONS = [
           GitHubOAuthEnabled: settings.GitHubOAuthEnabled,
           GitHubClientId: settings.GitHubClientId,
           GitHubClientSecret: settings.GitHubClientSecret,
-          TelegramOAuthEnabled: settings.TelegramOAuthEnabled,
-          TelegramBotToken: settings.TelegramBotToken,
-          TelegramBotName: settings.TelegramBotName,
           LinuxDOOAuthEnabled: settings.LinuxDOOAuthEnabled,
           LinuxDOClientId: settings.LinuxDOClientId,
           LinuxDOClientSecret: settings.LinuxDOClientSecret,
           LinuxDOMinimumTrustLevel: settings.LinuxDOMinimumTrustLevel,
-          WeChatAuthEnabled: settings.WeChatAuthEnabled,
-          WeChatServerAddress: settings.WeChatServerAddress,
-          WeChatServerToken: settings.WeChatServerToken,
-          WeChatAccountQRCodeImageURL: settings.WeChatAccountQRCodeImageURL,
         }}
       />
     ),

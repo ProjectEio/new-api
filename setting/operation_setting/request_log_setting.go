@@ -25,7 +25,7 @@ type RequestLogSetting struct {
 }
 
 var requestLogSetting = RequestLogSetting{
-	Enabled:         false,
+	Enabled:         true,
 	IpSource:        IpSourceAuto,
 	CdnRealIpHeader: "",
 	RecordUserAgent: true,

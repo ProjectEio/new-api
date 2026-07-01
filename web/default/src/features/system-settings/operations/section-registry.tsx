@@ -109,7 +109,7 @@ const OPERATIONS_SECTIONS = [
       <RequestLoggingSection
         defaultValues={{
           'request_log_setting.enabled':
-            settings['request_log_setting.enabled'] ?? false,
+            settings['request_log_setting.enabled'] ?? true,
           'request_log_setting.ip_source':
             settings['request_log_setting.ip_source'] ?? 'auto',
           'request_log_setting.cdn_real_ip_header':
