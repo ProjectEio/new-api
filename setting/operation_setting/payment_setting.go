@@ -19,6 +19,9 @@ const CurrentComplianceTermsVersion = "v1"
 var paymentSetting = PaymentSetting{
 	AmountOptions:  []int{10, 20, 50, 100, 200, 500},
 	AmountDiscount: map[int]float64{},
+	// 默认视为已确认合规，充值/兑换/订阅无需单独审批即可启用
+	ComplianceConfirmed:    true,
+	ComplianceTermsVersion: CurrentComplianceTermsVersion,
 }
 
 func init() {
