@@ -34,11 +34,6 @@ export interface AuthUser {
   quota?: number
   used_quota?: number
   request_count?: number
-  aff_code?: string
-  aff_count?: number
-  aff_quota?: number
-  aff_history_quota?: number
-  inviter_id?: number
   github_id?: string
   linux_do_id?: string
   setting?: Record<string, unknown> | string
