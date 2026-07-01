@@ -16,12 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
-	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/ai360"
-	"github.com/QuantumNous/new-api/relay/channel/lingyiwanwu"
-
-	//"github.com/QuantumNous/new-api/relay/channel/minimax"
 	"github.com/QuantumNous/new-api/relay/channel/openrouter"
 	"github.com/QuantumNous/new-api/relay/channel/xinference"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -360,72 +355,6 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 	return request, nil
 }
 
-func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	a.ResponseFormat = request.ResponseFormat
-	if info.RelayMode == relayconstant.RelayModeAudioSpeech {
-		jsonData, err := common.Marshal(request)
-		if err != nil {
-			return nil, fmt.Errorf("error marshalling object: %w", err)
-		}
-		return bytes.NewReader(jsonData), nil
-	} else {
-		var requestBody bytes.Buffer
-		writer := multipart.NewWriter(&requestBody)
-
-		writer.WriteField("model", request.Model)
-
-		formData, err2 := common.ParseMultipartFormReusable(c)
-		if err2 != nil {
-			return nil, fmt.Errorf("error parsing multipart form: %w", err2)
-		}
-
-		// 打印类似 curl 命令格式的信息
-		logger.LogDebug(c.Request.Context(), "--form 'model=\"%s\"'", request.Model)
-
-		// 遍历表单字段并打印输出
-		for key, values := range formData.Value {
-			if key == "model" {
-				continue
-			}
-			for _, value := range values {
-				writer.WriteField(key, value)
-				logger.LogDebug(c.Request.Context(), "--form '%s=\"%s\"'", key, value)
-			}
-		}
-
-		// 从 formData 中获取文件
-		fileHeaders := formData.File["file"]
-		if len(fileHeaders) == 0 {
-			return nil, errors.New("file is required")
-		}
-
-		// 使用 formData 中的第一个文件
-		fileHeader := fileHeaders[0]
-		logger.LogDebug(c.Request.Context(), "--form 'file=@\"%s\"' (size: %d bytes, content-type: %s)",
-			fileHeader.Filename, fileHeader.Size, fileHeader.Header.Get("Content-Type"))
-
-		file, err := fileHeader.Open()
-		if err != nil {
-			return nil, fmt.Errorf("error opening audio file: %v", err)
-		}
-		defer file.Close()
-
-		part, err := writer.CreateFormFile("file", fileHeader.Filename)
-		if err != nil {
-			return nil, errors.New("create form file failed")
-		}
-		if _, err := io.Copy(part, file); err != nil {
-			return nil, errors.New("copy file failed")
-		}
-
-		// 关闭 multipart 编写器以设置分界线
-		writer.Close()
-		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
-		logger.LogDebug(c.Request.Context(), "--header 'Content-Type: %s'", writer.FormDataContentType())
-		return &requestBody, nil
-	}
-}
-
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	switch info.RelayMode {
 	case relayconstant.RelayModeImagesEdits:
@@ -607,9 +536,7 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
-	if info.RelayMode == relayconstant.RelayModeAudioTranscription ||
-		info.RelayMode == relayconstant.RelayModeAudioTranslation ||
-		(info.RelayMode == relayconstant.RelayModeImagesEdits && !isJSONRequest(c)) {
+	if info.RelayMode == relayconstant.RelayModeImagesEdits && !isJSONRequest(c) {
 		return channel.DoFormRequest(a, c, info, requestBody)
 	} else if info.RelayMode == relayconstant.RelayModeRealtime {
 		return channel.DoWssRequest(a, c, info, requestBody)
@@ -622,12 +549,6 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	switch info.RelayMode {
 	case relayconstant.RelayModeRealtime:
 		err, usage = OpenaiRealtimeHandler(c, info)
-	case relayconstant.RelayModeAudioSpeech:
-		usage = OpenaiTTSHandler(c, resp, info)
-	case relayconstant.RelayModeAudioTranslation:
-		fallthrough
-	case relayconstant.RelayModeAudioTranscription:
-		err, usage = OpenaiSTTHandler(c, resp, info, a.ResponseFormat)
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
 		if info.IsStream {
 			usage, err = OpenaiImageStreamHandler(c, info, resp)
@@ -656,12 +577,6 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 
 func (a *Adaptor) GetModelList() []string {
 	switch a.ChannelType {
-	case constant.ChannelType360:
-		return ai360.ModelList
-	case constant.ChannelTypeLingYiWanWu:
-		return lingyiwanwu.ModelList
-	//case constant.ChannelTypeMiniMax:
-	//	return minimax.ModelList
 	case constant.ChannelTypeXinference:
 		return xinference.ModelList
 	case constant.ChannelTypeOpenRouter:
@@ -673,12 +588,6 @@ func (a *Adaptor) GetModelList() []string {
 
 func (a *Adaptor) GetChannelName() string {
 	switch a.ChannelType {
-	case constant.ChannelType360:
-		return ai360.ChannelName
-	case constant.ChannelTypeLingYiWanWu:
-		return lingyiwanwu.ChannelName
-	//case constant.ChannelTypeMiniMax:
-	//	return minimax.ChannelName
 	case constant.ChannelTypeXinference:
 		return xinference.ChannelName
 	case constant.ChannelTypeOpenRouter:

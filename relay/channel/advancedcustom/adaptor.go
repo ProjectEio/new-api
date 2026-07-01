@@ -121,17 +121,6 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 	return a.convertOpenAICompatibleEmbeddingRequest(c, info, request)
 }
 
-func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	converter, err := a.resolveForConversion(c, info)
-	if err != nil {
-		return nil, err
-	}
-	if converter != dto.AdvancedCustomConverterNone {
-		return nil, fmt.Errorf("converter %q does not support audio requests", converter)
-	}
-	return a.convertOpenAICompatibleAudioRequest(c, info, request)
-}
-
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	converter, err := a.resolveForConversion(c, info)
 	if err != nil {
@@ -190,9 +179,7 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 		return nil, errors.New("advanced custom converter routes cannot be used with pass-through request body")
 	}
 
-	if info.RelayMode == relayconstant.RelayModeAudioTranscription ||
-		info.RelayMode == relayconstant.RelayModeAudioTranslation ||
-		(info.RelayMode == relayconstant.RelayModeImagesEdits && !isJSONRequest(c)) {
+	if info.RelayMode == relayconstant.RelayModeImagesEdits && !isJSONRequest(c) {
 		return channel.DoFormRequest(a, c, info, requestBody)
 	}
 	if info.RelayMode == relayconstant.RelayModeRealtime {
@@ -458,14 +445,6 @@ func (a *Adaptor) convertOpenAICompatibleEmbeddingRequest(c *gin.Context, info *
 	old := info.ChannelType
 	info.ChannelType = constant.ChannelTypeOpenAI
 	converted, err := a.openaiAdaptor.ConvertEmbeddingRequest(c, info, request)
-	info.ChannelType = old
-	return converted, err
-}
-
-func (a *Adaptor) convertOpenAICompatibleAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
-	old := info.ChannelType
-	info.ChannelType = constant.ChannelTypeOpenAI
-	converted, err := a.openaiAdaptor.ConvertAudioRequest(c, info, request)
 	info.ChannelType = old
 	return converted, err
 }

@@ -293,28 +293,6 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 			}
 		}
 	}
-	if strings.HasPrefix(c.Request.URL.Path, "/v1/audio") {
-		relayMode := relayconstant.RelayModeAudioSpeech
-		if strings.HasPrefix(c.Request.URL.Path, "/v1/audio/speech") {
-
-			modelRequest.Model = common.GetStringIfEmpty(modelRequest.Model, "tts-1")
-		} else if strings.HasPrefix(c.Request.URL.Path, "/v1/audio/translations") {
-			// 先尝试从请求读取
-			if req, err := getModelFromRequest(c); err == nil && req.Model != "" {
-				modelRequest.Model = req.Model
-			}
-			modelRequest.Model = common.GetStringIfEmpty(modelRequest.Model, "whisper-1")
-			relayMode = relayconstant.RelayModeAudioTranslation
-		} else if strings.HasPrefix(c.Request.URL.Path, "/v1/audio/transcriptions") {
-			// 先尝试从请求读取
-			if req, err := getModelFromRequest(c); err == nil && req.Model != "" {
-				modelRequest.Model = req.Model
-			}
-			modelRequest.Model = common.GetStringIfEmpty(modelRequest.Model, "whisper-1")
-			relayMode = relayconstant.RelayModeAudioTranscription
-		}
-		c.Set("relay_mode", relayMode)
-	}
 	if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") {
 		// playground chat completions
 		req, err := getModelFromRequest(c)

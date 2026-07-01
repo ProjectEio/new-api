@@ -11,9 +11,6 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay"
-	"github.com/QuantumNous/new-api/relay/channel/ai360"
-	"github.com/QuantumNous/new-api/relay/channel/lingyiwanwu"
-	"github.com/QuantumNous/new-api/relay/channel/minimax"
 	"github.com/QuantumNous/new-api/relay/channel/moonshot"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -48,36 +45,12 @@ func init() {
 			})
 		}
 	}
-	for _, modelName := range ai360.ModelList {
-		openAIModels = append(openAIModels, dto.OpenAIModels{
-			Id:      modelName,
-			Object:  "model",
-			Created: 1626777600,
-			OwnedBy: ai360.ChannelName,
-		})
-	}
 	for _, modelName := range moonshot.ModelList {
 		openAIModels = append(openAIModels, dto.OpenAIModels{
 			Id:      modelName,
 			Object:  "model",
 			Created: 1626777600,
 			OwnedBy: moonshot.ChannelName,
-		})
-	}
-	for _, modelName := range lingyiwanwu.ModelList {
-		openAIModels = append(openAIModels, dto.OpenAIModels{
-			Id:      modelName,
-			Object:  "model",
-			Created: 1626777600,
-			OwnedBy: lingyiwanwu.ChannelName,
-		})
-	}
-	for _, modelName := range minimax.ModelList {
-		openAIModels = append(openAIModels, dto.OpenAIModels{
-			Id:      modelName,
-			Object:  "model",
-			Created: 1626777600,
-			OwnedBy: minimax.ChannelName,
 		})
 	}
 	openAIModelsMap = make(map[string]dto.OpenAIModels)

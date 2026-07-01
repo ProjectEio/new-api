@@ -36,12 +36,6 @@ func relayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIErro
 	switch info.RelayMode {
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
 		err = relay.ImageHelper(c, info)
-	case relayconstant.RelayModeAudioSpeech:
-		fallthrough
-	case relayconstant.RelayModeAudioTranslation:
-		fallthrough
-	case relayconstant.RelayModeAudioTranscription:
-		err = relay.AudioHelper(c, info)
 	case relayconstant.RelayModeRerank:
 		err = relay.RerankHelper(c, info)
 	case relayconstant.RelayModeEmbeddings:

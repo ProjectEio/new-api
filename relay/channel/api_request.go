@@ -43,9 +43,7 @@ func applyUpstreamContentLength(req *http.Request, info *common.RelayInfo) {
 }
 
 func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Header) {
-	if info.RelayMode == constant.RelayModeAudioTranscription || info.RelayMode == constant.RelayModeAudioTranslation {
-		// multipart/form-data
-	} else if info.RelayMode == constant.RelayModeRealtime {
+	if info.RelayMode == constant.RelayModeRealtime {
 		// websocket
 	} else {
 		req.Set("Content-Type", c.Request.Header.Get("Content-Type"))
