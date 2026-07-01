@@ -1,7 +1,6 @@
 package volcengine
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,7 +20,6 @@ import (
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
-	"github.com/samber/lo"
 )
 
 const (
@@ -45,7 +43,6 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 	adaptor := openai.Adaptor{}
 	return adaptor.ConvertClaudeRequest(c, info, req)
 }
-
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	switch info.RelayMode {
@@ -260,18 +257,6 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
-	if info.RelayMode == constant.RelayModeAudioSpeech {
-		baseUrl := info.ChannelBaseUrl
-		if baseUrl == "" {
-			baseUrl = channelconstant.ChannelBaseURLs[channelconstant.ChannelTypeVolcEngine]
-		}
-
-		if baseUrl == channelconstant.ChannelBaseURLs[channelconstant.ChannelTypeVolcEngine] {
-			if info.IsStream {
-				return nil, nil
-			}
-		}
-	}
 	return channel.DoApiRequest(a, c, info, requestBody)
 }
 
@@ -281,41 +266,6 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 			adaptor := claude.Adaptor{}
 			return adaptor.DoResponse(c, resp, info)
 		}
-	}
-
-	if info.RelayMode == constant.RelayModeAudioSpeech {
-		encoding := mapEncoding(c.GetString(contextKeyResponseFormat))
-		if info.IsStream {
-			volcRequestInterface, exists := c.Get(contextKeyTTSRequest)
-			if !exists {
-				return nil, types.NewErrorWithStatusCode(
-					errors.New("volcengine TTS request not found in context"),
-					types.ErrorCodeBadRequestBody,
-					http.StatusInternalServerError,
-				)
-			}
-
-			volcRequest, ok := volcRequestInterface.(VolcengineTTSRequest)
-			if !ok {
-				return nil, types.NewErrorWithStatusCode(
-					errors.New("invalid volcengine TTS request type"),
-					types.ErrorCodeBadRequestBody,
-					http.StatusInternalServerError,
-				)
-			}
-
-			// Get the WebSocket URL
-			requestURL, urlErr := a.GetRequestURL(info)
-			if urlErr != nil {
-				return nil, types.NewErrorWithStatusCode(
-					urlErr,
-					types.ErrorCodeBadRequestBody,
-					http.StatusInternalServerError,
-				)
-			}
-			return handleTTSWebSocketResponse(c, requestURL, volcRequest, info, encoding)
-		}
-		return handleTTSResponse(c, resp, info, encoding)
 	}
 
 	adaptor := openai.Adaptor{}
