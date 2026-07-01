@@ -8,14 +8,21 @@ import (
 	"github.com/QuantumNous/new-api/types"
 )
 
-// GroupEntry 中央分组注册表条目：一处定义分组的显示名、计费倍率与是否禁止余额消费。
-// 账号（可访问组）、套餐（授予组）、计费与鉴权都引用注册表中的分组名。
+// 分组访问/计费模式
+const (
+	GroupAccessOpen        = "open"         // 默认：所有人可用，走钱包余额
+	GroupAccessPlanOnly    = "plan_only"    // 仅套餐：需授权来源才能访问，扣套餐额度
+	GroupAccessBalanceOnly = "balance_only" // 仅余额：所有人可用，只走余额，不动套餐额度
+)
+
+// GroupEntry 中央分组注册表条目：一处定义分组的显示名、计费倍率、访问模式与绑定套餐。
 type GroupEntry struct {
 	DisplayName string  `json:"display_name"`
 	Ratio       float64 `json:"ratio"`
-	// DisableBalanceConsume 为 true 时，使用该分组的请求只能用套餐额度支付，不能扣钱包余额；
-	// 无可用套餐额度时请求被拒绝并提示“无可用套餐”。
-	DisableBalanceConsume bool `json:"disable_balance_consume"`
+	// AccessMode：open(默认) / plan_only(仅套餐) / balance_only(仅余额)。空视为 open。
+	AccessMode string `json:"access_mode"`
+	// Plans 绑定的套餐 ID 列表（可多个）。plan_only 时，持有其中任一套餐的订阅即被授权访问并从其额度扣费。
+	Plans []int `json:"plans"`
 }
 
 var defaultGroupRegistry = map[string]GroupEntry{
@@ -40,10 +47,59 @@ func GroupExists(name string) bool {
 	return ok
 }
 
-// GroupDisablesBalanceConsume 该分组是否禁止余额消费（仅可用套餐额度）。
-func GroupDisablesBalanceConsume(name string) bool {
+// GetGroupAccessMode 返回分组访问模式（空视为 open）。
+func GetGroupAccessMode(name string) string {
 	e, ok := groupRegistryMap.Get(name)
-	return ok && e.DisableBalanceConsume
+	if !ok || strings.TrimSpace(e.AccessMode) == "" {
+		return GroupAccessOpen
+	}
+	return e.AccessMode
+}
+
+// GroupIsPlanOnly 该分组是否仅套餐可用（访问需授权、扣套餐额度）。
+func GroupIsPlanOnly(name string) bool {
+	return GetGroupAccessMode(name) == GroupAccessPlanOnly
+}
+
+// GroupIsBalanceOnly 该分组是否仅余额可用（不动套餐额度）。
+func GroupIsBalanceOnly(name string) bool {
+	return GetGroupAccessMode(name) == GroupAccessBalanceOnly
+}
+
+// GetGroupPlans 返回分组绑定的套餐 ID 列表。
+func GetGroupPlans(name string) []int {
+	if e, ok := groupRegistryMap.Get(name); ok {
+		return e.Plans
+	}
+	return nil
+}
+
+// GroupsAuthorizedByPlan 反查：绑定了指定套餐的所有分组名（用于订阅激活/到期维护授权表）。
+func GroupsAuthorizedByPlan(planId int) []string {
+	if planId <= 0 {
+		return nil
+	}
+	groups := make([]string, 0)
+	for name, e := range groupRegistryMap.ReadAll() {
+		for _, p := range e.Plans {
+			if p == planId {
+				groups = append(groups, name)
+				break
+			}
+		}
+	}
+	return groups
+}
+
+// BindGroupToPlans 设置分组的访问模式与绑定套餐（不存在则新建）。用于默认播种等场景。
+func BindGroupToPlans(name string, mode string, planIds []int) {
+	e, ok := groupRegistryMap.Get(name)
+	if !ok {
+		e = GroupEntry{DisplayName: name, Ratio: 1}
+	}
+	e.AccessMode = mode
+	e.Plans = planIds
+	groupRegistryMap.AddAll(map[string]GroupEntry{name: e})
 }
 
 // GetGroupDisplayName 返回分组显示名，未配置时回退为分组名本身。

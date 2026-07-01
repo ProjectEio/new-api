@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/pkg/cachex"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/samber/hot"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -167,15 +168,6 @@ type SubscriptionPlan struct {
 
 	// Max purchases per user (0 = unlimited)
 	MaxPurchasePerUser int `json:"max_purchase_per_user" gorm:"type:int;default:0"`
-
-	// Upgrade user group after purchase (empty = no change)
-	UpgradeGroup string `json:"upgrade_group" gorm:"type:varchar(64);default:''"`
-
-	// Downgrade user group on expiry (empty = revert to the group held before purchase)
-	DowngradeGroup string `json:"downgrade_group" gorm:"type:varchar(64);default:''"`
-
-	// GrantGroups 套餐授予的可访问分组名列表（JSON 数组）。激活时并入账号可访问集，到期移除。
-	GrantGroups string `json:"grant_groups" gorm:"type:text"`
 
 	// Total quota (amount in quota units, 0 = unlimited)
 	TotalAmount int64 `json:"total_amount" gorm:"type:bigint;not null;default:0"`
@@ -429,36 +421,19 @@ func getUserGroupByIdTx(tx *gorm.DB, userId int) (string, error) {
 	return group, nil
 }
 
-func downgradeUserGroupForSubscriptionTx(tx *gorm.DB, sub *UserSubscription, now int64) (string, error) {
+// revokeSubscriptionGroupsTx 订阅到期/取消时，按订阅来源从用户授权表中撤销其授予的分组授权。
+func revokeSubscriptionGroupsTx(tx *gorm.DB, sub *UserSubscription, now int64) (string, error) {
 	if tx == nil || sub == nil {
-		return "", errors.New("invalid downgrade args")
+		return "", errors.New("invalid revoke args")
 	}
-	granted := sub.GetGrantedGroups()
-	if len(granted) == 0 {
-		return "", nil
-	}
-	keep, err := groupsGrantedByOtherActiveSubsTx(tx, sub.UserId, sub.Id, now)
-	if err != nil {
-		return "", err
-	}
-	if err := removeUserAccessibleGroupsTx(tx, sub.UserId, granted, keep); err != nil {
+	_ = now
+	if err := revokeSubscriptionAuthorizationsTx(tx, sub.UserId, sub.Id); err != nil {
 		return "", err
 	}
 	return "", nil
 }
 
-// GetGrantGroups 返回套餐授予的可访问分组名列表。
-func (plan *SubscriptionPlan) GetGrantGroups() []string {
-	return parseGroupList(plan.GrantGroups)
-}
-
-// GetGrantedGroups 返回本订阅实际授予的可访问分组名快照。
-func (s *UserSubscription) GetGrantedGroups() []string {
-	return parseGroupList(s.GrantedGroups)
-}
-
-// SeedDefaultSubscriptionPlans 若当前没有任何套餐，则播种默认套餐（体验卡/周卡/月卡）。
-// 套餐额度按其人民币价值给足（¥ × QuotaPerUnit），并授予 vip 分组。
+// SeedDefaultSubscriptionPlans 若当前没有任何套餐，则播种默认套餐（体验卡/周卡/月卡），
 func SeedDefaultSubscriptionPlans() error {
 	var count int64
 	if err := DB.Model(&SubscriptionPlan{}).Count(&count).Error; err != nil {
@@ -469,105 +444,99 @@ func SeedDefaultSubscriptionPlans() error {
 	}
 	now := common.GetTimestamp()
 	perYuan := int64(common.QuotaPerUnit)
-	grantVip := marshalGroupList([]string{"vip"})
 	plans := []SubscriptionPlan{
-		{Title: "体验卡", Subtitle: "2 天体验", PriceAmount: 5, Currency: "CNY", DurationUnit: SubscriptionDurationDay, DurationValue: 2, Enabled: true, SortOrder: 1, TotalAmount: 5 * perYuan, GrantGroups: grantVip, CreatedAt: now, UpdatedAt: now},
-		{Title: "周卡", Subtitle: "7 天", PriceAmount: 15, Currency: "CNY", DurationUnit: SubscriptionDurationDay, DurationValue: 7, Enabled: true, SortOrder: 2, TotalAmount: 15 * perYuan, GrantGroups: grantVip, CreatedAt: now, UpdatedAt: now},
-		{Title: "月卡", Subtitle: "30 天", PriceAmount: 45, Currency: "CNY", DurationUnit: SubscriptionDurationMonth, DurationValue: 1, Enabled: true, SortOrder: 3, TotalAmount: 45 * perYuan, GrantGroups: grantVip, CreatedAt: now, UpdatedAt: now},
+		{Title: "体验卡", Subtitle: "2 天体验", PriceAmount: 5, Currency: "CNY", DurationUnit: SubscriptionDurationDay, DurationValue: 2, Enabled: true, SortOrder: 1, TotalAmount: 5 * perYuan, CreatedAt: now, UpdatedAt: now},
+		{Title: "周卡", Subtitle: "7 天", PriceAmount: 15, Currency: "CNY", DurationUnit: SubscriptionDurationDay, DurationValue: 7, Enabled: true, SortOrder: 2, TotalAmount: 15 * perYuan, CreatedAt: now, UpdatedAt: now},
+		{Title: "月卡", Subtitle: "30 天", PriceAmount: 45, Currency: "CNY", DurationUnit: SubscriptionDurationMonth, DurationValue: 1, Enabled: true, SortOrder: 3, TotalAmount: 45 * perYuan, CreatedAt: now, UpdatedAt: now},
 	}
 	if err := DB.Create(&plans).Error; err != nil {
 		return err
 	}
+	// 默认把 vip 设为仅套餐分组，绑定到播种出的三张卡：订阅任一张即可访问 vip 并从其额度扣费。
+	planIds := make([]int, 0, len(plans))
+	for i := range plans {
+		planIds = append(planIds, plans[i].Id)
+	}
+	ratio_setting.BindGroupToPlans("vip", ratio_setting.GroupAccessPlanOnly, planIds)
+	_ = UpdateOption("GroupRegistry", ratio_setting.GroupRegistry2JSONString())
 	common.SysLog("seeded default subscription plans")
 	return nil
 }
 
-// addUserAccessibleGroupsTx 把一组分组并入用户可访问集合，返回实际新增的分组。
-func addUserAccessibleGroupsTx(tx *gorm.DB, userId int, groups []string) ([]string, error) {
-	groups = dedupeStrings(groups)
-	if len(groups) == 0 {
-		return nil, nil
-	}
-	var user User
-	if err := tx.Select("id", "accessible_groups").Where("id = ?", userId).First(&user).Error; err != nil {
-		return nil, err
-	}
-	existing := user.GetAccessibleGroups()
-	have := make(map[string]struct{}, len(existing))
-	for _, g := range existing {
-		have[g] = struct{}{}
-	}
-	added := make([]string, 0, len(groups))
-	for _, g := range groups {
-		if _, ok := have[g]; !ok {
-			existing = append(existing, g)
-			added = append(added, g)
-		}
-	}
-	if len(added) == 0 {
-		return nil, nil
-	}
-	user.SetAccessibleGroups(existing)
-	if err := tx.Model(&User{}).Where("id = ?", userId).
-		Update("accessible_groups", user.AccessibleGroups).Error; err != nil {
-		return nil, err
-	}
-	_ = invalidateUserCache(userId)
-	return added, nil
+// subscriptionAuthSource 订阅在授权表中的来源标识。
+func subscriptionAuthSource(subId int) string {
+	return "sub:" + strconv.Itoa(subId)
 }
 
-// removeUserAccessibleGroupsTx 从用户可访问集合移除一组分组，但保留仍被其它有效订阅授予的分组。
-func removeUserAccessibleGroupsTx(tx *gorm.DB, userId int, groups []string, keep map[string]struct{}) error {
+// authorizeGroupsForSubscriptionTx 为订阅授予的分组在用户授权表中加入来源标记。
+func authorizeGroupsForSubscriptionTx(tx *gorm.DB, userId int, subId int, groups []string) error {
 	groups = dedupeStrings(groups)
 	if len(groups) == 0 {
 		return nil
 	}
-	remove := make(map[string]struct{}, len(groups))
-	for _, g := range groups {
-		if _, kept := keep[g]; kept {
-			continue
-		}
-		remove[g] = struct{}{}
-	}
-	if len(remove) == 0 {
-		return nil
-	}
+	source := subscriptionAuthSource(subId)
 	var user User
-	if err := tx.Select("id", "accessible_groups").Where("id = ?", userId).First(&user).Error; err != nil {
+	if err := tx.Select("id", "group_authorizations").Where("id = ?", userId).First(&user).Error; err != nil {
 		return err
 	}
-	existing := user.GetAccessibleGroups()
-	kept := make([]string, 0, len(existing))
-	for _, g := range existing {
-		if _, drop := remove[g]; drop {
-			continue
+	auth := user.GetGroupAuthorizations()
+	for _, g := range groups {
+		if !containsString(auth[g], source) {
+			auth[g] = append(auth[g], source)
 		}
-		kept = append(kept, g)
 	}
-	user.SetAccessibleGroups(kept)
+	user.SetGroupAuthorizations(auth)
 	if err := tx.Model(&User{}).Where("id = ?", userId).
-		Update("accessible_groups", user.AccessibleGroups).Error; err != nil {
+		Update("group_authorizations", user.GroupAuthorizations).Error; err != nil {
 		return err
 	}
 	_ = invalidateUserCache(userId)
 	return nil
 }
 
-// groupsGrantedByOtherActiveSubsTx 返回该用户其它有效订阅仍在授予的分组集合（用于到期时避免误删）。
-func groupsGrantedByOtherActiveSubsTx(tx *gorm.DB, userId int, excludeSubId int, now int64) (map[string]struct{}, error) {
-	var subs []UserSubscription
-	if err := tx.Select("id", "granted_groups").
-		Where("user_id = ? AND status = ? AND end_time > ? AND id <> ?", userId, "active", now, excludeSubId).
-		Find(&subs).Error; err != nil {
-		return nil, err
+// revokeSubscriptionAuthorizationsTx 移除某订阅在用户授权表中的所有来源标记；来源清空的分组一并移除。
+func revokeSubscriptionAuthorizationsTx(tx *gorm.DB, userId int, subId int) error {
+	source := subscriptionAuthSource(subId)
+	var user User
+	if err := tx.Select("id", "group_authorizations").Where("id = ?", userId).First(&user).Error; err != nil {
+		return err
 	}
-	keep := make(map[string]struct{})
-	for i := range subs {
-		for _, g := range subs[i].GetGrantedGroups() {
-			keep[g] = struct{}{}
+	auth := user.GetGroupAuthorizations()
+	changed := false
+	for g, srcs := range auth {
+		kept := make([]string, 0, len(srcs))
+		for _, s := range srcs {
+			if s == source {
+				changed = true
+				continue
+			}
+			kept = append(kept, s)
+		}
+		if len(kept) == 0 {
+			delete(auth, g)
+		} else {
+			auth[g] = kept
 		}
 	}
-	return keep, nil
+	if !changed {
+		return nil
+	}
+	user.SetGroupAuthorizations(auth)
+	if err := tx.Model(&User{}).Where("id = ?", userId).
+		Update("group_authorizations", user.GroupAuthorizations).Error; err != nil {
+		return err
+	}
+	_ = invalidateUserCache(userId)
+	return nil
+}
+
+func containsString(list []string, target string) bool {
+	for _, s := range list {
+		if s == target {
+			return true
+		}
+	}
+	return false
 }
 
 func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string) (*UserSubscription, error) {
@@ -603,7 +572,6 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	if nextReset > 0 {
 		lastReset = now.Unix()
 	}
-	grantGroups := plan.GetGrantGroups()
 	allowWalletOverflow := true
 	if plan.AllowWalletOverflow != nil {
 		allowWalletOverflow = *plan.AllowWalletOverflow
@@ -619,7 +587,6 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		Source:              source,
 		LastResetTime:       lastReset,
 		NextResetTime:       nextReset,
-		GrantedGroups:       marshalGroupList(grantGroups),
 		AllowWalletOverflow: allowWalletOverflow,
 		CreatedAt:           common.GetTimestamp(),
 		UpdatedAt:           common.GetTimestamp(),
@@ -627,8 +594,8 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	if err := tx.Create(sub).Error; err != nil {
 		return nil, err
 	}
-	// 套餐授予的分组并入账号可访问集合（到期时据 GrantedGroups 快照移除）。
-	if _, err := addUserAccessibleGroupsTx(tx, userId, grantGroups); err != nil {
+	// 为绑定了本套餐的分组，在用户授权表中加入来源标记（到期时按订阅来源移除）。
+	if err := authorizeGroupsForSubscriptionTx(tx, userId, sub.Id, ratio_setting.GroupsAuthorizedByPlan(plan.Id)); err != nil {
 		return nil, err
 	}
 	return sub, nil
@@ -649,7 +616,6 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	var logPlanTitle string
 	var logMoney float64
 	var logPaymentMethod string
-	var upgradeGroup string
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var order SubscriptionOrder
 		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", tradeNo).First(&order).Error; err != nil {
@@ -671,7 +637,6 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		if !plan.Enabled {
 			// still allow completion for already purchased orders
 		}
-		upgradeGroup = strings.TrimSpace(plan.UpgradeGroup)
 		_, err = CreateUserSubscriptionFromPlanTx(tx, order.UserId, plan, "order")
 		if err != nil {
 			return err
@@ -698,9 +663,6 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	})
 	if err != nil {
 		return err
-	}
-	if upgradeGroup != "" && logUserId > 0 {
-		_ = UpdateUserGroupCache(logUserId, upgradeGroup)
 	}
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
@@ -786,10 +748,6 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 	if err != nil {
 		return "", err
 	}
-	if strings.TrimSpace(plan.UpgradeGroup) != "" {
-		_ = UpdateUserGroupCache(userId, plan.UpgradeGroup)
-		return fmt.Sprintf("用户分组将升级到 %s", plan.UpgradeGroup), nil
-	}
 	return "", nil
 }
 
@@ -816,7 +774,6 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 	var logPlanTitle string
 	var logMoney float64
 	var chargedQuota int
-	var upgradeGroup string
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		plan, err := getSubscriptionPlanByIdTx(tx, planId)
 		if err != nil {
@@ -876,7 +833,6 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 		logPlanTitle = plan.Title
 		logMoney = plan.PriceAmount
 		chargedQuota = requiredQuota
-		upgradeGroup = strings.TrimSpace(plan.UpgradeGroup)
 		return nil
 	})
 	if err != nil {
@@ -887,9 +843,6 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 		if err := cacheDecrUserQuota(userId, int64(chargedQuota)); err != nil {
 			common.SysLog("failed to decrease user quota cache after subscription balance purchase: " + err.Error())
 		}
-	}
-	if upgradeGroup != "" {
-		_ = UpdateUserGroupCache(userId, upgradeGroup)
 	}
 	msg := fmt.Sprintf("使用余额购买订阅成功，套餐: %s，支付金额: %.2f，扣除额度: %d", logPlanTitle, logMoney, chargedQuota)
 	RecordLog(userId, LogTypeTopup, msg)
@@ -922,6 +875,21 @@ func HasActiveUserSubscription(userId int) (bool, error) {
 	var count int64
 	if err := DB.Model(&UserSubscription{}).
 		Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// HasActiveUserSubscriptionOfPlan 用户是否持有指定套餐的有效订阅（用于分组访问鉴权与扣费）。
+func HasActiveUserSubscriptionOfPlan(userId int, planId int) (bool, error) {
+	if userId <= 0 || planId <= 0 {
+		return false, nil
+	}
+	now := common.GetTimestamp()
+	var count int64
+	if err := DB.Model(&UserSubscription{}).
+		Where("user_id = ? AND plan_id = ? AND status = ? AND end_time > ?", userId, planId, "active", now).
 		Count(&count).Error; err != nil {
 		return false, err
 	}
@@ -998,7 +966,7 @@ func AdminInvalidateUserSubscription(userSubscriptionId int) (string, error) {
 		}).Error; err != nil {
 			return err
 		}
-		target, err := downgradeUserGroupForSubscriptionTx(tx, &sub, now)
+		target, err := revokeSubscriptionGroupsTx(tx, &sub, now)
 		if err != nil {
 			return err
 		}
@@ -1036,7 +1004,7 @@ func AdminDeleteUserSubscription(userSubscriptionId int) (string, error) {
 			return err
 		}
 		userId = sub.UserId
-		target, err := downgradeUserGroupForSubscriptionTx(tx, &sub, now)
+		target, err := revokeSubscriptionGroupsTx(tx, &sub, now)
 		if err != nil {
 			return err
 		}
@@ -1093,75 +1061,37 @@ func ExpireDueSubscriptions(limit int) (int, error) {
 		}
 	}
 	for userId := range userIds {
-		cacheGroup := ""
 		err := DB.Transaction(func(tx *gorm.DB) error {
-			res := tx.Model(&UserSubscription{}).
+			// 找出本次到期的订阅
+			var expiring []UserSubscription
+			if err := tx.Select("id").
 				Where("user_id = ? AND status = ? AND end_time > 0 AND end_time <= ?", userId, "active", now).
-				Updates(map[string]interface{}{
-					"status":     "expired",
-					"updated_at": common.GetTimestamp(),
-				})
-			if res.Error != nil {
-				return res.Error
-			}
-			expiredCount += int(res.RowsAffected)
-
-			// If there's an active upgraded subscription, keep current group.
-			var activeSub UserSubscription
-			activeQuery := tx.Where("user_id = ? AND status = ? AND end_time > ? AND upgrade_group <> ''",
-				userId, "active", now).
-				Order("end_time desc, id desc").
-				Limit(1).
-				Find(&activeSub)
-			if activeQuery.Error == nil && activeQuery.RowsAffected > 0 {
-				return nil
-			}
-
-			// Find the most recently expired subscription that defines a group transition
-			// (an explicit downgrade target or an upgrade snapshot to revert).
-			var lastExpired UserSubscription
-			expiredQuery := tx.Where("user_id = ? AND status = ? AND (downgrade_group <> '' OR upgrade_group <> '')",
-				userId, "expired").
-				Order("end_time desc, id desc").
-				Limit(1).
-				Find(&lastExpired)
-			if expiredQuery.Error != nil || expiredQuery.RowsAffected == 0 {
-				return nil
-			}
-			currentGroup, err := getUserGroupByIdTx(tx, userId)
-			if err != nil {
+				Find(&expiring).Error; err != nil {
 				return err
 			}
-			// An explicit downgrade group takes precedence; otherwise revert to the
-			// group held before purchase (legacy behavior, only when the subscription
-			// actually elevated the user).
-			target := strings.TrimSpace(lastExpired.DowngradeGroup)
-			if target == "" {
-				upgradeGroup := strings.TrimSpace(lastExpired.UpgradeGroup)
-				prevGroup := strings.TrimSpace(lastExpired.PrevUserGroup)
-				if upgradeGroup == "" || prevGroup == "" {
-					return nil
-				}
-				if currentGroup != upgradeGroup {
-					return nil
-				}
-				target = prevGroup
-			}
-			if target == "" || target == currentGroup {
+			if len(expiring) == 0 {
 				return nil
 			}
-			if err := tx.Model(&User{}).Where("id = ?", userId).
-				Update("group", target).Error; err != nil {
+			ids := make([]int, 0, len(expiring))
+			for i := range expiring {
+				ids = append(ids, expiring[i].Id)
+			}
+			if err := tx.Model(&UserSubscription{}).
+				Where("id IN ?", ids).
+				Updates(map[string]interface{}{"status": "expired", "updated_at": common.GetTimestamp()}).Error; err != nil {
 				return err
 			}
-			cacheGroup = target
+			expiredCount += len(ids)
+			// 撤销到期订阅在用户授权表中授予的分组授权（按订阅来源移除）
+			for _, id := range ids {
+				if err := revokeSubscriptionAuthorizationsTx(tx, userId, id); err != nil {
+					return err
+				}
+			}
 			return nil
 		})
 		if err != nil {
 			return expiredCount, err
-		}
-		if cacheGroup != "" {
-			_ = UpdateUserGroupCache(userId, cacheGroup)
 		}
 	}
 	return expiredCount, nil

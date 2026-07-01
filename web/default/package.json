@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "NODE_OPTIONS=--max-old-space-size=6144 vite build",
-    "build:check": "tsgo -b && NODE_OPTIONS=--max-old-space-size=6144 vite build",
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 vite build",
+    "build:check": "tsgo -b && NODE_OPTIONS=--max-old-space-size=4096 vite build",
     "typecheck": "tsgo -b",
     "lint": "oxlint -c .oxlintrc.json .",
     "lint:fix": "oxlint -c .oxlintrc.json . --fix",

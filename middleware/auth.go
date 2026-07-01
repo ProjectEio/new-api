@@ -391,15 +391,20 @@ func TokenAuth() func(c *gin.Context) {
 		userGroup := userCache.Group
 		tokenGroup := token.Group
 		if tokenGroup != "" {
-			// 访问鉴权：请求分组必须在账号可访问集合内（含账号自身分组）；auto 由后续解析
-			if tokenGroup != "auto" && !userCache.CanAccessGroup(tokenGroup) {
-				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
-				return
-			}
-			// 分组必须在中央分组注册表中定义
-			if tokenGroup != "auto" && !ratio_setting.GroupExists(tokenGroup) {
-				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 已被弃用", tokenGroup))
-				return
+			if tokenGroup != "auto" {
+				// 分组必须在中央分组注册表中定义
+				if !ratio_setting.GroupExists(tokenGroup) {
+					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 已被弃用", tokenGroup))
+					return
+				}
+				// 绑定套餐的分组：需持有该套餐的有效订阅才能访问；未绑定分组对所有账号开放
+				if planId := ratio_setting.GetGroupConsumePlanId(tokenGroup); planId > 0 {
+					hasSub, subErr := model.HasActiveUserSubscriptionOfPlan(token.UserId, planId)
+					if subErr != nil || !hasSub {
+						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组：需要有效套餐", tokenGroup))
+						return
+					}
+				}
 			}
 			userGroup = tokenGroup
 		}

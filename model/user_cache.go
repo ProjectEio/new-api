@@ -22,30 +22,18 @@ type UserBase struct {
 	Status   int    `json:"status"`
 	Username string `json:"username"`
 	Setting  string `json:"setting"`
-	// AccessibleGroups 账号可访问分组名（JSON 数组），访问鉴权的唯一来源。
-	AccessibleGroups string `json:"accessible_groups"`
+	// GroupAuthorizations 分组授权表 group -> [来源]（JSON），用于受限分组的访问鉴权与扣费。
+	GroupAuthorizations string `json:"group_authorizations"`
 }
 
-// GetAccessibleGroups 返回账号可访问分组名列表（含账号自身分组，始终可用）。
-func (user *UserBase) GetAccessibleGroups() []string {
-	groups := parseGroupList(user.AccessibleGroups)
-	if user.Group != "" {
-		groups = dedupeStrings(append(groups, user.Group))
-	}
-	return groups
+// IsGroupAuthorized 该分组是否已被授权（授权表中存在至少一个来源）。
+func (user *UserBase) IsGroupAuthorized(group string) bool {
+	return len(parseGroupAuthMap(user.GroupAuthorizations)[group]) > 0
 }
 
-// CanAccessGroup 账号是否可访问指定分组（账号自身分组始终可用）。
-func (user *UserBase) CanAccessGroup(group string) bool {
-	if group == "" || group == user.Group {
-		return true
-	}
-	for _, g := range parseGroupList(user.AccessibleGroups) {
-		if g == group {
-			return true
-		}
-	}
-	return false
+// GetGroupAuthorizations 返回授权表快照。
+func (user *UserBase) GetGroupAuthorizations() map[string][]string {
+	return parseGroupAuthMap(user.GroupAuthorizations)
 }
 
 func (user *UserBase) WriteContext(c *gin.Context) {

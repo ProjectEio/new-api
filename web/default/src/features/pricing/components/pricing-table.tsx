@@ -33,7 +33,7 @@ export interface PricingTableProps {
   models: PricingModel[]
   isLoading?: boolean
   priceRate?: number
-  usdExchangeRate?: number
+  displayExchangeRate?: number
   tokenUnit?: TokenUnit
   showRechargePrice?: boolean
   onModelClick?: (modelName: string) => void
@@ -45,7 +45,7 @@ export function PricingTable(props: PricingTableProps) {
     models,
     isLoading = false,
     priceRate = 1,
-    usdExchangeRate = 1,
+    displayExchangeRate = 1,
     tokenUnit = DEFAULT_TOKEN_UNIT,
     showRechargePrice = false,
     onModelClick,
@@ -59,7 +59,7 @@ export function PricingTable(props: PricingTableProps) {
   const columns = usePricingColumns({
     tokenUnit,
     priceRate,
-    usdExchangeRate,
+    displayExchangeRate,
     showRechargePrice,
   })
 

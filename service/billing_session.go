@@ -396,8 +396,9 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		return session, nil
 	}
 
-	// 分组禁止余额消费：强制走套餐额度，无可用套餐额度则拒绝并提示“无可用套餐”。
-	if ratio_setting.GroupDisablesBalanceConsume(relayInfo.UsingGroup) {
+	// 分组绑定套餐：强制从套餐订阅额度扣费，无有效订阅则拒绝并提示“无可用套餐”。
+	// TODO(RC): 按 boundPlanId 精确消费该套餐的订阅（当前先用通用订阅逻辑）。
+	if boundPlanId := ratio_setting.GetGroupConsumePlanId(relayInfo.UsingGroup); boundPlanId > 0 {
 		noPlan := func() *types.NewAPIError {
 			return types.NewErrorWithStatusCode(
 				fmt.Errorf("无可用套餐"),

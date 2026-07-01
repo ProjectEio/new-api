@@ -938,7 +938,7 @@ export function ModelMutateDrawer({
                   name='price'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('Fixed price (USD)')}</FormLabel>
+                      <FormLabel>{t('Fixed price (CNY)')}</FormLabel>
                       <FormControl>
                         <Input
                           type='text'
@@ -954,7 +954,7 @@ export function ModelMutateDrawer({
                       </FormControl>
                       <FormDescription>
                         {t(
-                          'Cost in USD per request, regardless of tokens used.'
+                          'Cost in CNY per request, regardless of tokens used.'
                         )}
                       </FormDescription>
                       <FormMessage />
@@ -980,7 +980,7 @@ export function ModelMutateDrawer({
                       <div className='flex items-center space-x-2'>
                         <RadioGroupItem value='price' id='price' />
                         <Label htmlFor='price' className='font-normal'>
-                          {t('Price mode (USD per 1M tokens)')}
+                          {t('Price mode (CNY per 1M tokens)')}
                         </Label>
                       </div>
                     </RadioGroup>

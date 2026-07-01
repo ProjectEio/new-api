@@ -35,11 +35,11 @@ type User struct {
 	Quota            int            `json:"quota" gorm:"type:int;default:0"`
 	UsedQuota        int            `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
 	RequestCount     int            `json:"request_count" gorm:"type:int;default:0;"`               // request number
-	Group            string         `json:"group" gorm:"type:varchar(64);default:'default'"`
-	// AccessibleGroups 账号可访问的分组名列表（JSON 数组），是访问权限的唯一来源。
-	// 套餐激活时把套餐授予的分组并入此列表，到期移除。
-	AccessibleGroups string         `json:"accessible_groups" gorm:"type:text"`
-	DeletedAt        gorm.DeletedAt `gorm:"index"`
+	Group string `json:"group" gorm:"type:varchar(64);default:'default'"`
+	// GroupAuthorizations 分组授权表：group -> [来源]（JSON）。来源如 "sub:订阅ID"、"manual"。
+	// 订阅激活加来源、到期移除；某分组来源清空即失去授权。仅对受限(plan_only)分组生效。
+	GroupAuthorizations string         `json:"group_authorizations" gorm:"type:text"`
+	DeletedAt           gorm.DeletedAt `gorm:"index"`
 	LinuxDOId        string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
 	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
@@ -55,8 +55,8 @@ func (user *User) ToBaseUser() *UserBase {
 		Status:           user.Status,
 		Username:         user.Username,
 		Setting:          user.Setting,
-		Email:            user.Email,
-		AccessibleGroups: user.AccessibleGroups,
+		Email:               user.Email,
+		GroupAuthorizations: user.GroupAuthorizations,
 	}
 	return cache
 }
@@ -72,14 +72,53 @@ func (user *User) SetAccessToken(token string) {
 	user.AccessToken = &token
 }
 
-// GetAccessibleGroups 返回账号可访问的分组名列表。
-func (user *User) GetAccessibleGroups() []string {
-	return parseGroupList(user.AccessibleGroups)
+// GetGroupAuthorizations 返回分组授权表：group -> [来源]。
+func (user *User) GetGroupAuthorizations() map[string][]string {
+	return parseGroupAuthMap(user.GroupAuthorizations)
 }
 
-// SetAccessibleGroups 设置账号可访问的分组名列表（去重、去空）。
-func (user *User) SetAccessibleGroups(groups []string) {
-	user.AccessibleGroups = marshalGroupList(groups)
+// SetGroupAuthorizations 写回分组授权表（去空、去重）。
+func (user *User) SetGroupAuthorizations(m map[string][]string) {
+	user.GroupAuthorizations = marshalGroupAuthMap(m)
+}
+
+// IsGroupAuthorized 该分组是否已被授权（存在至少一个来源）。
+func (user *User) IsGroupAuthorized(group string) bool {
+	return len(parseGroupAuthMap(user.GroupAuthorizations)[group]) > 0
+}
+
+// parseGroupAuthMap 解析授权表 JSON（group -> [来源]）。
+func parseGroupAuthMap(raw string) map[string][]string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return map[string][]string{}
+	}
+	m := map[string][]string{}
+	if err := common.UnmarshalJsonStr(raw, &m); err != nil {
+		return map[string][]string{}
+	}
+	return m
+}
+
+// marshalGroupAuthMap 序列化授权表：去重来源、丢弃空来源的分组；整表为空存空串。
+func marshalGroupAuthMap(m map[string][]string) string {
+	clean := map[string][]string{}
+	for g, srcs := range m {
+		if g = strings.TrimSpace(g); g == "" {
+			continue
+		}
+		if s := dedupeStrings(srcs); len(s) > 0 {
+			clean[g] = s
+		}
+	}
+	if len(clean) == 0 {
+		return ""
+	}
+	b, err := common.Marshal(clean)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 // parseGroupList 解析分组名列表：优先按 JSON 数组，兼容历史逗号分隔。

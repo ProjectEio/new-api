@@ -311,7 +311,7 @@ export function processChartData(
     }))
     .sort((a, b) => b.value - a.value)
 
-  // Stacked bar: model quota distribution (quota -> USD)
+  // Stacked bar: model quota distribution (quota -> ¥)
   const lineValues: Array<{
     Time: string
     Model: string

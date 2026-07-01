@@ -21,62 +21,24 @@ For commercial licensing, please contact support@quantumnous.com
  * Currency Formatting Library
  * ============================================================================
  *
- * This module provides currency formatting utilities that handle the conversion
- * between system USD amounts, local currency, and token displays based on
- * admin-configured settings.
+ * The billing base is CNY: the backend anchors quota via `points / QuotaPerUnit = ¥`,
+ * so every monetary amount that reaches the frontend is already denominated in ¥.
  *
  * ## Key Concepts
  *
- * 1. **System USD**: Internal currency unit used throughout the system (e.g., 10 USD)
- * 2. **Local Currency**: Admin-configured display currency (e.g., CNY, custom currency)
- * 3. **Exchange Rate (usdExchangeRate)**: Conversion rate from USD to local currency
- *    - Example: usdExchangeRate = 7 means 1 USD = 7 CNY
- * 4. **Recharge Price (priceRatio)**: Cost in local currency to purchase 1 system USD
- *    - Example: priceRatio = 5 means user pays 5 CNY to get 1 USD credit
- * 5. **Tokens**: Alternative display unit (e.g., 500,000 tokens = 1 USD)
+ * 1. **Amount (¥)**: Internal monetary unit — a plain CNY amount (e.g. 10 = ¥10).
+ * 2. **Display type** (`quotaDisplayType`): how amounts are shown to the user:
+ *    - `CNY`    → formatted as ¥ (no conversion; the amount already is ¥).
+ *    - `CUSTOM` → converted to a custom display currency via `customCurrencyExchangeRate`.
+ *    - `TOKENS` → shown as raw token counts (amount × `quotaPerUnit`).
+ * 3. **Tokens**: alternative display unit (`quotaPerUnit` tokens = ¥1).
  *
  * ## When to Use Each Function
  *
- * - `formatCurrencyFromUSD()`: Use for quota/balance display (stored as USD, converted for display)
- * - `formatBillingCurrencyFromUSD()`: Use for billing/pricing displays (never shows tokens)
- * - `formatLocalCurrencyAmount()`: Use for payment amounts already in local currency
- * - `formatQuotaWithCurrency()`: Use for raw quota values (converts to USD first)
- *
- * ## Example Scenario
- *
- * Admin Configuration:
- * - quotaDisplayType: 'CNY'
- * - usdExchangeRate: 7 (1 USD = 7 CNY)
- * - priceRatio: 5 (5 CNY per 1 USD credit)
- * - quotaPerUnit: 500000 (tokens per USD)
- *
- * User Flow:
- * 1. Recharge option: 10 USD
- *    - Display: formatCurrencyFromUSD(10) → "¥70"
- * 2. Payment amount: 10 × 5 = 50 (already in CNY)
- *    - Display: formatLocalCurrencyAmount(50) → "¥50"
- * 3. User receives: 10 USD credit
- *    - Balance display: formatCurrencyFromUSD(10) → "¥70"
- *
- * ## Quick Reference Guide
- *
- * | Scenario | Input Type | Function to Use | Why |
- * |----------|-----------|-----------------|-----|
- * | User balance display | USD (from DB) | `formatCurrencyFromUSD()` | Needs conversion to display currency |
- * | Recharge option button | USD | `formatCurrencyFromUSD()` | Needs conversion to local currency |
- * | Payment confirmation | Already local currency | `formatLocalCurrencyAmount()` | Already converted via priceRatio |
- * | Billing history Amount | USD (from DB) | `formatCurrencyFromUSD()` | Historical USD needs conversion |
- * | Billing history Payment | Local currency | `formatNumber()` | Just show number, no symbol |
- * | Model pricing | USD | `formatBillingCurrencyFromUSD()` | Never show as tokens |
- * | Raw quota from API | Tokens | `formatQuotaWithCurrency()` | Convert tokens → USD → display |
- *
- * ## Critical Rules
- *
- * 1. **Never double-convert**: If you multiply by exchangeRate, use formatLocalCurrencyAmount()
- * 2. **Database USD values**: Always use formatCurrencyFromUSD() for amounts stored as USD
- * 3. **Payment amounts**: Always use formatLocalCurrencyAmount() for priceRatio-calculated values
- * 4. **Billing displays**: Use formatBillingCurrencyFromUSD() to avoid token display
- * 5. **Effective exchange rate**: When quotaDisplayType is 'USD', use rate of 1 regardless of config
+ * - `formatCurrencyFromCNY()`: quota/balance display (respects the tokens display type).
+ * - `formatBillingCurrencyFromCNY()`: billing/pricing display (never shows tokens).
+ * - `formatLocalCurrencyAmount()`: an amount already in the final display currency.
+ * - `formatQuotaWithCurrency()`: raw quota (token units) → display; converts to ¥ first.
  */
 import {
   useSystemConfigStore,
@@ -95,8 +57,8 @@ export interface CurrencyFormatOptions {
   /** Minimal absolute value to display when rounding would produce zero */
   minimumNonZero?: number
   /**
-   * Use locale-aware compact notation for large values (e.g. "$28万" in zh,
-   * "$280K" in en). The currency symbol is preserved.
+   * Use locale-aware compact notation for large values (e.g. "¥28万" in zh,
+   * "¥280K" in en). The currency symbol is preserved.
    */
   compact?: boolean
   /** Locale used for number formatting (defaults to the runtime locale) */
@@ -124,7 +86,7 @@ type DisplayMeta =
     }
   | {
       kind: 'tokens'
-      /** Number of tokens per USD */
+      /** Number of tokens per ¥1 */
       quotaPerUnit: number
     }
 
@@ -244,7 +206,7 @@ function formatNumberWithSuffix(
   const abs = Math.abs(value)
   if (abbreviate && abs >= 1000) {
     const result = value / 1000
-    return removeTrailingZeros(result.toFixed(1)) + 'k'
+    return `${removeTrailingZeros(result.toFixed(1))}k`
   }
 
   const digits = abs >= 1 ? digitsLarge : digitsSmall
@@ -314,11 +276,7 @@ function formatCurrencyValue(
 /**
  * Get the current currency configuration and display metadata.
  *
- * @returns Object containing config and display metadata
- *
- * @internal
- * This is primarily for internal use. Most consumers should use the
- * higher-level formatting functions instead.
+ * @internal Most consumers should use the higher-level formatting functions.
  */
 export function getCurrencyDisplay() {
   const config = getConfig()
@@ -327,53 +285,30 @@ export function getCurrencyDisplay() {
 }
 
 /**
- * Format a USD amount according to the admin-configured display settings.
+ * Format a ¥ amount according to the admin-configured display settings.
  *
- * This is the PRIMARY function for displaying quota/balance/credit amounts
- * that are stored in the system as USD values.
+ * This is the PRIMARY function for displaying quota/balance/credit amounts, which
+ * reach the frontend already denominated in ¥.
  *
- * @param amountUSD - Amount in system USD units (e.g., user balance, quota)
- * @param options - Optional formatting configuration
+ * @param amountCNY - Amount in ¥ (e.g. user balance, quota converted to currency)
  * @returns Formatted string with currency symbol or token count
  *
  * @example
- * // With quotaDisplayType: 'USD'
- * formatCurrencyFromUSD(10) → "$10"
- *
- * @example
- * // With quotaDisplayType: 'CNY', usdExchangeRate: 7
- * formatCurrencyFromUSD(10) → "¥70"
- *
- * @example
- * // With quotaDisplayType: 'TOKENS', quotaPerUnit: 500000
- * formatCurrencyFromUSD(10) → "5,000,000"
- *
- * @example
- * // With quotaDisplayType: 'CUSTOM', customCurrencySymbol: '€', customCurrencyExchangeRate: 0.9
- * formatCurrencyFromUSD(10) → "€9"
- *
- * @remarks
- * Use this function for:
- * - User balance/quota display
- * - Recharge option amounts (before exchange rate applied)
- * - Transaction amounts in billing history
- * - Any value stored in database as USD
- *
- * DO NOT use for:
- * - Payment amounts already converted via priceRatio → use formatLocalCurrencyAmount()
- * - Raw token values → use formatQuotaWithCurrency()
+ * // quotaDisplayType: 'CNY'    → formatCurrencyFromCNY(10) → "¥10"
+ * // quotaDisplayType: 'CUSTOM' (symbol '$', rate 0.14) → "$1.4"
+ * // quotaDisplayType: 'TOKENS' (quotaPerUnit 500000)   → "5,000,000"
  */
-export function formatCurrencyFromUSD(
-  amountUSD: number | null | undefined,
+export function formatCurrencyFromCNY(
+  amountCNY: number | null | undefined,
   options?: CurrencyFormatOptions
 ): string {
-  if (amountUSD == null || Number.isNaN(amountUSD)) return '-'
+  if (amountCNY == null || Number.isNaN(amountCNY)) return '-'
 
   const { config, meta } = getCurrencyDisplay()
   const merged = mergeOptions(options)
 
   if (meta.kind === 'tokens') {
-    const tokens = amountUSD * config.quotaPerUnit
+    const tokens = amountCNY * config.quotaPerUnit
     if (merged.compact) {
       return new Intl.NumberFormat(merged.locale, {
         notation: 'compact',
@@ -388,57 +323,33 @@ export function formatCurrencyFromUSD(
     )
   }
 
-  const value =
-    meta.kind === 'currency'
-      ? amountUSD * meta.exchangeRate
-      : amountUSD * meta.exchangeRate
+  const value = amountCNY * meta.exchangeRate
 
   return formatCurrencyValue(value, merged, meta)
 }
 
 /**
- * Format USD amounts for billing/payment contexts (never shows tokens).
+ * Format ¥ amounts for billing/payment contexts (never shows tokens).
  *
- * Similar to formatCurrencyFromUSD, but NEVER displays in token units.
- * Always shows real currency values (USD, CNY, etc.) even when the system
- * is configured to display quotas as tokens elsewhere.
+ * Like formatCurrencyFromCNY, but always renders a real currency value even when the
+ * system is configured to display quotas as tokens elsewhere.
  *
- * @param amountUSD - Amount in system USD units
- * @param options - Optional formatting configuration
+ * @param amountCNY - Amount in ¥
  * @returns Formatted string with currency symbol (never tokens)
- *
- * @example
- * // With quotaDisplayType: 'TOKENS' - still shows currency
- * formatBillingCurrencyFromUSD(10) → "$10"  (not "5,000,000 tokens")
- *
- * @example
- * // With quotaDisplayType: 'CNY', usdExchangeRate: 7
- * formatBillingCurrencyFromUSD(10) → "¥70"
- *
- * @remarks
- * Use this function for:
- * - Model pricing displays
- * - API usage costs
- * - Billing/invoice amounts
- * - Any monetary value where tokens don't make sense
- *
- * DO NOT use for:
- * - User balance/quota → use formatCurrencyFromUSD()
- * - Payment amounts already in local currency → use formatLocalCurrencyAmount()
  */
-export function formatBillingCurrencyFromUSD(
-  amountUSD: number | null | undefined,
+export function formatBillingCurrencyFromCNY(
+  amountCNY: number | null | undefined,
   options?: CurrencyFormatOptions
 ): string {
-  if (amountUSD == null || Number.isNaN(amountUSD)) return '-'
+  if (amountCNY == null || Number.isNaN(amountCNY)) return '-'
 
   const { config } = getCurrencyDisplay()
   const meta = getBillingDisplayMeta(config)
   const merged = mergeOptions(options)
   const value =
     meta.kind === 'currency' || meta.kind === 'custom'
-      ? amountUSD * meta.exchangeRate
-      : amountUSD
+      ? amountCNY * meta.exchangeRate
+      : amountCNY
 
   return formatCurrencyValue(value, merged, meta)
 }
@@ -446,30 +357,14 @@ export function formatBillingCurrencyFromUSD(
 /**
  * Format raw quota values (token units) to display currency.
  *
- * Converts raw quota/token amounts to USD first, then formats according
- * to display settings. Use when you have quota in token units (e.g., 5000000)
- * and need to display it as currency (e.g., "$10").
+ * Converts raw quota to ¥ first (quota / quotaPerUnit), then formats according to
+ * display settings. Use when you have quota in token units (e.g. 5000000).
  *
- * @param quota - Raw quota amount in token units (e.g., 5000000)
- * @param options - Optional formatting configuration
+ * @param quota - Raw quota amount in token units (e.g. 5000000)
  * @returns Formatted string with currency symbol or token count
  *
  * @example
- * // With quotaPerUnit: 500000, quotaDisplayType: 'USD'
- * formatQuotaWithCurrency(5000000) → "$10"
- *
- * @example
- * // With quotaPerUnit: 500000, quotaDisplayType: 'CNY', usdExchangeRate: 7
- * formatQuotaWithCurrency(5000000) → "¥70"
- *
- * @remarks
- * Use this function for:
- * - Raw quota values from database (stored as tokens)
- * - When you need to convert tokens → USD → display currency
- *
- * DO NOT use for:
- * - Values already in USD → use formatCurrencyFromUSD()
- * - Payment amounts → use formatLocalCurrencyAmount()
+ * // quotaPerUnit 500000, quotaDisplayType 'CNY' → formatQuotaWithCurrency(5000000) → "¥10"
  */
 export function formatQuotaWithCurrency(
   quota: number | null | undefined,
@@ -478,28 +373,14 @@ export function formatQuotaWithCurrency(
   if (quota == null || Number.isNaN(quota)) return '-'
 
   const { config } = getCurrencyDisplay()
-  const amountUSD = quota / config.quotaPerUnit
-  return formatCurrencyFromUSD(amountUSD, options)
+  const amountCNY = quota / config.quotaPerUnit
+  return formatCurrencyFromCNY(amountCNY, options)
 }
 
 /**
  * Get the current currency label for UI display.
  *
- * Returns a simple string label representing the current display currency.
- * Useful for labels, tooltips, and UI text.
- *
- * @returns Currency label string (e.g., "USD", "CNY", "Tokens")
- *
- * @example
- * getCurrencyLabel() → "USD"
- * getCurrencyLabel() → "CNY"
- * getCurrencyLabel() → "Tokens"
- *
- * @remarks
- * Use this for:
- * - Currency selector labels
- * - Table column headers
- * - Form field labels
+ * @returns Currency label string (e.g. "CNY", the custom symbol, or "Tokens")
  */
 export function getCurrencyLabel(): string {
   const { config, meta } = getCurrencyDisplay()
@@ -520,17 +401,7 @@ export function getCurrencyLabel(): string {
 /**
  * Check if currency display is enabled (not in token-only mode).
  *
- * @returns True if displaying in actual currency (USD/CNY/etc), false if tokens only
- *
- * @example
- * // With quotaDisplayType: 'USD' or 'CNY'
- * isCurrencyDisplayEnabled() → true
- *
- * // With quotaDisplayType: 'TOKENS'
- * isCurrencyDisplayEnabled() → false
- *
- * @remarks
- * Use this to conditionally show currency-specific UI elements
+ * @returns True if displaying in actual currency (CNY / custom), false if tokens only
  */
 export function isCurrencyDisplayEnabled(): boolean {
   const { meta } = getCurrencyDisplay()
@@ -538,46 +409,16 @@ export function isCurrencyDisplayEnabled(): boolean {
 }
 
 /**
- * Format an amount that is ALREADY in local currency.
+ * Format an amount that is ALREADY in the final display currency.
  *
- * ⚠️ CRITICAL: This function does NOT apply exchange rate conversion.
- * Only use this for values that have already been converted to local currency
- * via priceRatio or other means.
+ * ⚠️ CRITICAL: This function does NOT apply exchange-rate conversion. Only use it for
+ * values already converted to the display currency (e.g. a computed payment amount).
  *
- * @param amount - Amount already in local currency units
- * @param options - Optional formatting configuration
- * @returns Formatted string with appropriate currency symbol
+ * @param amount - Amount already in the display currency
+ * @returns Formatted string with the appropriate currency symbol
  *
  * @example
- * // Payment amount already calculated: 10 USD × priceRatio(5) = 50 CNY
- * // With quotaDisplayType: 'CNY'
- * formatLocalCurrencyAmount(50) → "¥50"
- * // NOT "¥350" (which would be 50 × 7 exchangeRate)
- *
- * @example
- * // With quotaDisplayType: 'USD'
- * formatLocalCurrencyAmount(10) → "$10"
- *
- * @remarks
- * Use this function for:
- * - Payment amounts calculated via priceRatio (amount × price)
- * - Actual money charged to user's payment method
- * - Values that are already in the target currency
- *
- * DO NOT use for:
- * - USD values that need conversion → use formatCurrencyFromUSD()
- * - Raw quota values → use formatQuotaWithCurrency()
- *
- * Common mistake:
- * ```ts
- * // ❌ WRONG - Double conversion
- * const payment = usdAmount * exchangeRate
- * formatLocalCurrencyAmount(payment) // Will apply exchange rate again!
- *
- * // ✅ CORRECT - Already in local currency
- * const payment = usdAmount * priceRatio
- * formatLocalCurrencyAmount(payment) // Just formats with symbol
- * ```
+ * // quotaDisplayType 'CNY' → formatLocalCurrencyAmount(50) → "¥50"
  */
 export function formatLocalCurrencyAmount(
   amount: number | null | undefined,

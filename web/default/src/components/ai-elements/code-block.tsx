@@ -28,9 +28,12 @@ import {
   useState,
 } from 'react'
 import { CheckIcon, CopyIcon } from 'lucide-react'
-import { createHighlighterCore, type HighlighterCore } from 'shiki/core'
+import {
+  createHighlighterCore,
+  type HighlighterCore,
+  type ShikiTransformer,
+} from 'shiki/core'
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
-import type { ShikiTransformer } from 'shiki/core'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -44,13 +47,13 @@ export type CodeLanguage =
   | 'python'
   | 'json'
 
-const SUPPORTED_LANGUAGES: readonly CodeLanguage[] = [
+const SUPPORTED_LANGUAGES = new Set<CodeLanguage>([
   'bash',
   'javascript',
   'typescript',
   'python',
   'json',
-]
+])
 
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string
@@ -121,7 +124,7 @@ export async function highlightCode(
   const transformers: ShikiTransformer[] = showLineNumbers
     ? [lineNumberTransformer]
     : []
-  const lang = SUPPORTED_LANGUAGES.includes(language) ? language : 'text'
+  const lang = SUPPORTED_LANGUAGES.has(language) ? language : 'text'
 
   return highlighter.codeToHtml(code, {
     lang,

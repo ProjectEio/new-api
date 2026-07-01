@@ -35,8 +35,8 @@ export function usePricingData() {
     () => Math.max((status?.price as number) ?? 1, 0.001),
     [status?.price]
   )
-  // CNY is the billing base: displayed prices need no USD→local conversion.
-  const usdExchangeRate = 1
+  // CNY is the billing base: prices are already in ¥, so no display conversion is needed.
+  const displayExchangeRate = 1
 
   const models = useMemo(() => {
     if (!data?.data || !data?.vendors) return []
@@ -69,6 +69,6 @@ export function usePricingData() {
     error,
     refetch,
     priceRate,
-    usdExchangeRate,
+    displayExchangeRate,
   }
 }

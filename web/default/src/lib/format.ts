@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import dayjs from '@/lib/dayjs'
 import {
-  formatCurrencyFromUSD,
   formatQuotaWithCurrency,
   getCurrencyDisplay,
 } from './currency'
@@ -56,17 +55,13 @@ export function formatPercent(value: number | null | undefined): string {
   }).format((value as number) / 100)
 }
 
-export function formatCurrencyUSD(value: number | null | undefined): string {
-  return formatCurrencyFromUSD(value == null ? null : (value as number))
-}
-
 // ============================================================================
-// Quota Formatting (500,000 units = $1)
+// Quota Formatting (quotaPerUnit tokens = ¥1)
 // ============================================================================
 
 /**
  * Format quota into the configured display amount.
- * Quota is stored in units where `quotaPerUnit` equals 1 USD.
+ * Quota is stored in token units where `quotaPerUnit` equals ¥1.
  */
 export function formatQuota(quota: number): string {
   return formatQuotaWithCurrency(quota, {

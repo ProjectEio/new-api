@@ -47,7 +47,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import {
-  formatCurrencyFromUSD,
+  formatCurrencyFromCNY,
   formatQuotaWithCurrency,
   getCurrencyLabel,
 } from '@/lib/currency'
@@ -300,7 +300,7 @@ function BalanceCell({ channel }: { channel: Channel }) {
       : usedFull
   const remainingDisplay =
     remainingFull.length > MAX_INLINE_BALANCE_CHARS
-      ? withSuffix(formatCurrencyFromUSD(balance, { compact: true, locale }))
+      ? withSuffix(formatCurrencyFromCNY(balance, { compact: true, locale }))
       : remainingFull
   const usedLabel = `${t('Used:')} ${usedFull}`
   const remainingLabel = `${t('Remaining:')} ${remainingFull}`
