@@ -45,6 +45,7 @@ export function getPlanFormSchema(t: TFunction) {
     total_amount: z.coerce.number().min(0),
     upgrade_group: z.string().optional(),
     downgrade_group: z.string().optional(),
+    grant_groups: z.string().optional(),
   })
 }
 
@@ -67,6 +68,7 @@ export const PLAN_FORM_DEFAULTS: PlanFormValues = {
   total_amount: 0,
   upgrade_group: '',
   downgrade_group: '',
+  grant_groups: '',
 }
 
 export function planToFormValues(plan: SubscriptionPlan): PlanFormValues {
@@ -87,6 +89,7 @@ export function planToFormValues(plan: SubscriptionPlan): PlanFormValues {
     total_amount: quotaUnitsToDollars(Number(plan.total_amount || 0)),
     upgrade_group: plan.upgrade_group || '',
     downgrade_group: plan.downgrade_group || '',
+    grant_groups: plan.grant_groups || '',
   }
 }
 

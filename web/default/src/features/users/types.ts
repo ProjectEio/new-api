@@ -41,6 +41,7 @@ export const userSchema = z.object({
   used_quota: z.number(),
   request_count: z.number(),
   group: z.string(),
+  accessible_groups: z.string().optional(),
   linux_do_id: z.string().optional(),
   status: userStatusSchema,
   role: userRoleSchema,
@@ -97,6 +98,7 @@ export interface UserFormData {
   role?: number // Only used when creating user
   quota?: number // Only used when updating user
   group?: string // Only used when updating user
+  accessible_groups?: string // Comma/JSON list of accessible group names (update only)
   remark?: string // Only used when updating user
 }
 

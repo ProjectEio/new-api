@@ -33,44 +33,42 @@ For commercial licensing, please contact support@quantumnous.com
  * - Chained properties: "OpenAI.Avatar.type={'platform'}"
  * - Size parameter: getLobeIcon("OpenAI", 20)
  */
-import {
-  Ai360,
-  Anthropic,
-  Aws,
-  Azure,
-  Baidu,
-  ChatGLM,
-  Claude,
-  Cloudflare,
-  Cohere,
-  DeepSeek,
-  Doubao,
-  Gemini,
-  Google,
-  Grok,
-  Groq,
-  HuggingFace,
-  Hunyuan,
-  Kimi,
-  Meta,
-  Microsoft,
-  Minimax,
-  Mistral,
-  Moonshot,
-  NewAPI,
-  Nvidia,
-  Ollama,
-  OpenAI,
-  OpenRouter,
-  Perplexity,
-  Qwen,
-  Spark,
-  Volcengine,
-  Wenxin,
-  XAI,
-  Yi,
-  Zhipu,
-} from '@lobehub/icons'
+import Ai360 from '@lobehub/icons/es/Ai360'
+import Anthropic from '@lobehub/icons/es/Anthropic'
+import Aws from '@lobehub/icons/es/Aws'
+import Azure from '@lobehub/icons/es/Azure'
+import Baidu from '@lobehub/icons/es/Baidu'
+import ChatGLM from '@lobehub/icons/es/ChatGLM'
+import Claude from '@lobehub/icons/es/Claude'
+import Cloudflare from '@lobehub/icons/es/Cloudflare'
+import Cohere from '@lobehub/icons/es/Cohere'
+import DeepSeek from '@lobehub/icons/es/DeepSeek'
+import Doubao from '@lobehub/icons/es/Doubao'
+import Gemini from '@lobehub/icons/es/Gemini'
+import Google from '@lobehub/icons/es/Google'
+import Grok from '@lobehub/icons/es/Grok'
+import Groq from '@lobehub/icons/es/Groq'
+import HuggingFace from '@lobehub/icons/es/HuggingFace'
+import Hunyuan from '@lobehub/icons/es/Hunyuan'
+import Kimi from '@lobehub/icons/es/Kimi'
+import Meta from '@lobehub/icons/es/Meta'
+import Microsoft from '@lobehub/icons/es/Microsoft'
+import Minimax from '@lobehub/icons/es/Minimax'
+import Mistral from '@lobehub/icons/es/Mistral'
+import Moonshot from '@lobehub/icons/es/Moonshot'
+import NewAPI from '@lobehub/icons/es/NewAPI'
+import Nvidia from '@lobehub/icons/es/Nvidia'
+import Ollama from '@lobehub/icons/es/Ollama'
+import OpenAI from '@lobehub/icons/es/OpenAI'
+import OpenRouter from '@lobehub/icons/es/OpenRouter'
+import Perplexity from '@lobehub/icons/es/Perplexity'
+import Qwen from '@lobehub/icons/es/Qwen'
+import Spark from '@lobehub/icons/es/Spark'
+import Volcengine from '@lobehub/icons/es/Volcengine'
+import Wenxin from '@lobehub/icons/es/Wenxin'
+import XAI from '@lobehub/icons/es/XAI'
+import Yi from '@lobehub/icons/es/Yi'
+import Zhipu from '@lobehub/icons/es/Zhipu'
 
 // Curated provider / model-family icons (kept providers + common families).
 const CURATED_ICONS: Record<string, unknown> = {

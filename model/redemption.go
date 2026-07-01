@@ -12,12 +12,12 @@ import (
 )
 
 type Redemption struct {
-	Id           int            `json:"id"`
-	UserId       int            `json:"user_id"`
-	Key          string         `json:"key" gorm:"type:char(32);uniqueIndex"`
-	Status       int            `json:"status" gorm:"default:1"`
-	Name         string         `json:"name" gorm:"index"`
-	Quota        int            `json:"quota" gorm:"default:100"`
+	Id     int    `json:"id"`
+	UserId int    `json:"user_id"`
+	Key    string `json:"key" gorm:"type:char(32);uniqueIndex"`
+	Status int    `json:"status" gorm:"default:1"`
+	Name   string `json:"name" gorm:"index"`
+	Quota  int    `json:"quota" gorm:"default:100"`
 	// PlanId 关联的订阅套餐（0=普通额度码；>0=兑换即激活该套餐）。
 	PlanId       int            `json:"plan_id" gorm:"default:0"`
 	CreatedTime  int64          `json:"created_time" gorm:"bigint"`

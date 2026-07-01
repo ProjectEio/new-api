@@ -190,14 +190,16 @@ const (
 )
 
 const (
+	// RoleGuestUser 仅作为权限下限哨兵（0=任意角色），不再是可分配的用户角色。
 	RoleGuestUser  = 0
 	RoleCommonUser = 1
 	RoleAdminUser  = 10
 	RoleRootUser   = 100
 )
 
+// IsValidateRole 用户角色三档：用户 / 管理 / 超级管理（不含 guest）。
 func IsValidateRole(role int) bool {
-	return role == RoleGuestUser || role == RoleCommonUser || role == RoleAdminUser || role == RoleRootUser
+	return role == RoleCommonUser || role == RoleAdminUser || role == RoleRootUser
 }
 
 var (

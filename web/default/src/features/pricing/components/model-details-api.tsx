@@ -26,13 +26,13 @@ import {
   Zap,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { BundledLanguage } from 'shiki/bundle/web'
 import { useStatus } from '@/hooks/use-status'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   CodeBlock,
   CodeBlockCopyButton,
+  type CodeLanguage,
 } from '@/components/ai-elements/code-block'
 import {
   StaticDataTable,
@@ -65,7 +65,7 @@ const LANG_LABELS: Record<Lang, string> = {
   javascript: 'JavaScript',
 }
 
-const LANG_HIGHLIGHT: Record<Lang, BundledLanguage> = {
+const LANG_HIGHLIGHT: Record<Lang, CodeLanguage> = {
   curl: 'bash',
   python: 'python',
   typescript: 'typescript',

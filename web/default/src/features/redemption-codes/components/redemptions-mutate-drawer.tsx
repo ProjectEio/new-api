@@ -324,6 +324,35 @@ export function RedemptionsMutateDrawer({
                   )}
                 />
               )}
+
+              {!isUpdate && (
+                <FormField
+                  control={form.control}
+                  name='plan_id'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Plan ID (optional)')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='number'
+                          min='0'
+                          placeholder='0'
+                          value={field.value ?? 0}
+                          onChange={(e) =>
+                            field.onChange(parseInt(e.target.value, 10) || 0)
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'Leave 0 for a normal quota code. Set a subscription plan ID to make redeeming activate that plan.'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </SideDrawerSection>
           </form>
         </Form>

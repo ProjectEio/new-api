@@ -97,6 +97,7 @@ func AddRedemption(c *gin.Context) {
 			Key:         key,
 			CreatedTime: common.GetTimestamp(),
 			Quota:       redemption.Quota,
+			PlanId:      redemption.PlanId,
 			ExpiredTime: redemption.ExpiredTime,
 		}
 		err = cleanRedemption.Insert()

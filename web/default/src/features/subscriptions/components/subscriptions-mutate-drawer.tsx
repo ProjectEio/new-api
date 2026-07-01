@@ -277,6 +277,29 @@ export function SubscriptionsMutateDrawer({
                 />
               </div>
 
+              <FormField
+                control={form.control}
+                name='grant_groups'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Grant Groups')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='vip, svip'
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Comma-separated group names this plan grants access to. They are added to the account while the plan is active and removed on expiry.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                 <FormField
                   control={form.control}

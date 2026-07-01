@@ -28,13 +28,33 @@ import {
   useState,
 } from 'react'
 import { CheckIcon, CopyIcon } from 'lucide-react'
-import type { BundledLanguage, ShikiTransformer } from 'shiki/bundle/web'
+import { createHighlighterCore, type HighlighterCore } from 'shiki/core'
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
+import type { ShikiTransformer } from 'shiki/core'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
+// Languages actually rendered by code samples in the app. Kept intentionally
+// small: a fine-grained highlighter only loads these grammars instead of
+// shiki's full web bundle (~40 grammars + every theme + the oniguruma WASM).
+export type CodeLanguage =
+  | 'bash'
+  | 'javascript'
+  | 'typescript'
+  | 'python'
+  | 'json'
+
+const SUPPORTED_LANGUAGES: readonly CodeLanguage[] = [
+  'bash',
+  'javascript',
+  'typescript',
+  'python',
+  'json',
+]
+
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string
-  language: BundledLanguage
+  language: CodeLanguage
   showLineNumbers?: boolean
 }
 
@@ -67,19 +87,44 @@ const lineNumberTransformer: ShikiTransformer = {
   },
 }
 
+// Fine-grained highlighter built once on first use. Grammars/themes stay out of
+// the initial bundle (loaded via dynamic import here) and the JS regex engine
+// avoids pulling shiki's ~3.6MB oniguruma WASM.
+let highlighterPromise: Promise<HighlighterCore> | null = null
+
+function getHighlighter(): Promise<HighlighterCore> {
+  if (!highlighterPromise) {
+    highlighterPromise = createHighlighterCore({
+      engine: createJavaScriptRegexEngine({ forgiving: true }),
+      themes: [
+        import('shiki/themes/one-light.mjs'),
+        import('shiki/themes/one-dark-pro.mjs'),
+      ],
+      langs: [
+        import('shiki/langs/bash.mjs'),
+        import('shiki/langs/javascript.mjs'),
+        import('shiki/langs/typescript.mjs'),
+        import('shiki/langs/python.mjs'),
+        import('shiki/langs/json.mjs'),
+      ],
+    })
+  }
+  return highlighterPromise
+}
+
 export async function highlightCode(
   code: string,
-  language: BundledLanguage,
+  language: CodeLanguage,
   showLineNumbers = false
 ) {
-  // Load shiki on demand so its grammars/themes stay out of the initial bundle.
-  const { codeToHtml } = await import('shiki/bundle/web')
+  const highlighter = await getHighlighter()
   const transformers: ShikiTransformer[] = showLineNumbers
     ? [lineNumberTransformer]
     : []
+  const lang = SUPPORTED_LANGUAGES.includes(language) ? language : 'text'
 
-  return codeToHtml(code, {
-    lang: language,
+  return highlighter.codeToHtml(code, {
+    lang,
     themes: {
       light: 'one-light',
       dark: 'one-dark-pro',

@@ -358,6 +358,29 @@ export function UsersMutateDrawer({
 
                   <FormField
                     control={form.control}
+                    name='accessible_groups'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Accessible Groups')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder='default, vip'
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value)}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'Comma-separated group names this account may use (in addition to its own group). Plans can add more while active.'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name='quota_dollars'
                     render={({ field }) => (
                       <FormItem>

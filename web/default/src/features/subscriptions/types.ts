@@ -41,6 +41,7 @@ export const subscriptionPlanSchema = z.object({
   total_amount: z.number(),
   upgrade_group: z.string().optional(),
   downgrade_group: z.string().optional(),
+  grant_groups: z.string().optional(),
 })
 
 export type SubscriptionPlan = z.infer<typeof subscriptionPlanSchema>

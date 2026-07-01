@@ -57,10 +57,10 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageActionsPortal } from '../components/settings-page-context'
 import { GroupRatioVisualEditor } from './group-ratio-visual-editor'
-import { GroupSpecialUsableRulesEditor } from './group-special-usable-editor'
 
 type GroupFormValues = {
   GroupRatio: string
+  GroupRegistry: string
   TopupGroupRatio: string
   UserUsableGroups: string
   GroupGroupRatio: string
@@ -146,13 +146,6 @@ export const GroupRatioForm = memo(function GroupRatioForm({
               }
             />
 
-            <GroupSpecialUsableRulesEditor
-              value={form.watch('GroupSpecialUsableGroup')}
-              onChange={(value) =>
-                handleFieldChange('GroupSpecialUsableGroup', value)
-              }
-            />
-
             <FormField
               control={form.control}
               name='DefaultUseAutoGroup'
@@ -178,6 +171,25 @@ export const GroupRatioForm = memo(function GroupRatioForm({
           </div>
         ) : (
           <SettingsForm onSubmit={form.handleSubmit(onSave)}>
+            <FormField
+              control={form.control}
+              name='GroupRegistry'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Group registry')}</FormLabel>
+                  <FormControl>
+                    <Textarea rows={8} {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Central group definition (authoritative). JSON map of group → { display_name, ratio, disable_balance_consume }. When disable_balance_consume is true, that group can only be paid by an active plan, not wallet balance.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name='GroupRatio'
@@ -269,25 +281,6 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                   <FormDescription>
                     {t(
                       'JSON array of group identifiers. When enabled below, new tokens rotate through this list.'
-                    )}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name='GroupSpecialUsableGroup'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('Special usable group rules')}</FormLabel>
-                  <FormControl>
-                    <Textarea rows={8} {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    {t(
-                      'Nested JSON defining per-group rules for adding (+:), removing (-:), or appending usable groups.'
                     )}
                   </FormDescription>
                   <FormMessage />

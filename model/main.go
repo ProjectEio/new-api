@@ -308,6 +308,11 @@ func migrateDB() error {
 	if err := SeedDefaultSubscriptionPlans(); err != nil {
 		common.SysError("seed default subscription plans failed: " + err.Error())
 	}
+	// 角色收敛为三档：将历史 guest(0) 账号迁移为普通用户(1)。
+	if err := DB.Model(&User{}).Where("role = ?", common.RoleGuestUser).
+		Update("role", common.RoleCommonUser).Error; err != nil {
+		common.SysError("migrate guest role failed: " + err.Error())
+	}
 	return nil
 }
 
