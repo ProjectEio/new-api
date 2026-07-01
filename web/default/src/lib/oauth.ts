@@ -42,16 +42,10 @@ export function buildLinuxDOOAuthUrl(clientId: string, state: string): string {
 
 /**
  * Get OAuth state token
- * Includes affiliate code from localStorage if available
  */
 export async function getOAuthState(): Promise<string | null> {
   try {
-    let path = '/api/oauth/state'
-    const affCode = localStorage.getItem('aff')
-    if (affCode && affCode.length > 0) {
-      path += `?aff=${affCode}`
-    }
-    const res = await api.get(path)
+    const res = await api.get('/api/oauth/state')
     if (res.data.success) {
       return res.data.data
     }

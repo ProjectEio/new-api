@@ -53,12 +53,6 @@ export const PAYMENT_ICON_COLORS = {
 export const DEFAULT_DISCOUNT_RATE = 1.0
 
 /**
- * Minimum affiliate reward transfer amount (quota units).
- * Quota maps to CNY at 1:100, so 100 quota = ¥1.
- */
-export const MIN_TRANSFER_QUOTA = 100
-
-/**
  * Default minimum topup amount
  */
 export const DEFAULT_MIN_TOPUP = 1

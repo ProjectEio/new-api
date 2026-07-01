@@ -70,7 +70,6 @@ var ModelList = []string{
 	"whisper-1",
 	"tts-1", "tts-1-1106", "tts-1-hd", "tts-1-hd-1106",
 	"computer-use-preview", "computer-use-preview-2025-03-11",
-	"sora-2", "sora-2-pro",
 }
 
 var ChannelName = "openai"
