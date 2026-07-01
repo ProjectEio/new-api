@@ -22,6 +22,7 @@ import { MonitoringSettingsSection } from '../integrations/monitoring-settings-s
 import { WorkerSettingsSection } from '../integrations/worker-settings-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
 import { PerformanceSection } from '../maintenance/performance-section'
+import { RequestLoggingSection } from '../maintenance/request-logging-section'
 import { UpdateCheckerSection } from '../maintenance/update-checker-section'
 import type { OperationsSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
@@ -98,6 +99,24 @@ const OPERATIONS_SECTIONS = [
     build: (settings: OperationsSettings) => (
       <LogSettingsSection
         defaultEnabled={Boolean(settings.LogConsumeEnabled)}
+      />
+    ),
+  },
+  {
+    id: 'request-logging',
+    titleKey: 'Request IP Logging',
+    build: (settings: OperationsSettings) => (
+      <RequestLoggingSection
+        defaultValues={{
+          'request_log_setting.enabled':
+            settings['request_log_setting.enabled'] ?? false,
+          'request_log_setting.ip_source':
+            settings['request_log_setting.ip_source'] ?? 'auto',
+          'request_log_setting.cdn_real_ip_header':
+            settings['request_log_setting.cdn_real_ip_header'] ?? '',
+          'request_log_setting.record_user_agent':
+            settings['request_log_setting.record_user_agent'] ?? true,
+        }}
       />
     ),
   },

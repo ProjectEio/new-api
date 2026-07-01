@@ -2168,6 +2168,7 @@ export function ChannelMutateDrawer({
                                 items={[
                                   { value: 'random', label: t('Random') },
                                   { value: 'polling', label: t('Polling') },
+                                  { value: 'sticky', label: t('Sticky') },
                                 ]}
                                 onValueChange={field.onChange}
                                 value={field.value}
@@ -2185,6 +2186,9 @@ export function ChannelMutateDrawer({
                                     <SelectItem value='polling'>
                                       {t('Polling')}
                                     </SelectItem>
+                                    <SelectItem value='sticky'>
+                                      {t('Sticky')}
+                                    </SelectItem>
                                   </SelectGroup>
                                 </SelectContent>
                               </Select>
@@ -2195,6 +2199,10 @@ export function ChannelMutateDrawer({
                                       'Polling mode requires Redis and memory cache, otherwise performance will be significantly degraded'
                                     )}
                                   </span>
+                                ) : multiKeyType === 'sticky' ? (
+                                  t(
+                                    'Each user sticks to one key and switches only on error; keys are load-balanced across all healthy keys. Failed keys are disabled after the error threshold and re-probed after the recovery interval.'
+                                  )
                                 ) : (
                                   t(
                                     'Randomly select a key from the pool for each request'
@@ -2206,6 +2214,114 @@ export function ChannelMutateDrawer({
                           )}
                         />
                       )}
+
+                      {!isEditing &&
+                        multiKeyMode === 'multi_to_single' &&
+                        multiKeyType === 'sticky' && (
+                          <div className='grid gap-4 sm:grid-cols-3'>
+                            <FormField
+                              control={form.control}
+                              name='multi_key_error_threshold'
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>{t('Error Threshold')}</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type='number'
+                                      min={1}
+                                      placeholder='3'
+                                      value={field.value ?? ''}
+                                      onChange={(e) =>
+                                        field.onChange(
+                                          e.target.value === ''
+                                            ? undefined
+                                            : Number(e.target.value)
+                                        )
+                                      }
+                                      name={field.name}
+                                      onBlur={field.onBlur}
+                                      ref={field.ref}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    {t(
+                                      'Consecutive errors before a key is disabled'
+                                    )}
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name='multi_key_recovery_seconds'
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>
+                                    {t('Recovery Interval (s)')}
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type='number'
+                                      min={1}
+                                      placeholder='300'
+                                      value={field.value ?? ''}
+                                      onChange={(e) =>
+                                        field.onChange(
+                                          e.target.value === ''
+                                            ? undefined
+                                            : Number(e.target.value)
+                                        )
+                                      }
+                                      name={field.name}
+                                      onBlur={field.onBlur}
+                                      ref={field.ref}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    {t(
+                                      'Seconds before a disabled key is re-probed'
+                                    )}
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name='multi_key_max_recovery_fails'
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>{t('Max Recovery Fails')}</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type='number'
+                                      min={1}
+                                      placeholder='3'
+                                      value={field.value ?? ''}
+                                      onChange={(e) =>
+                                        field.onChange(
+                                          e.target.value === ''
+                                            ? undefined
+                                            : Number(e.target.value)
+                                        )
+                                      }
+                                      name={field.name}
+                                      onBlur={field.onBlur}
+                                      ref={field.ref}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    {t(
+                                      'Failed recovery cycles before permanent disable'
+                                    )}
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        )}
                     </ChannelAuthSection>
                   </ChannelApiAccessSection>
 

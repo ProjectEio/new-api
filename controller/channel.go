@@ -556,6 +556,9 @@ func RefreshCodexChannelCredential(c *gin.Context) {
 type AddChannelRequest struct {
 	Mode                      string                `json:"mode"`
 	MultiKeyMode              constant.MultiKeyMode `json:"multi_key_mode"`
+	MultiKeyErrorThreshold    int                   `json:"multi_key_error_threshold"`
+	MultiKeyRecoverySeconds   int                   `json:"multi_key_recovery_seconds"`
+	MultiKeyMaxRecoveryFails  int                   `json:"multi_key_max_recovery_fails"`
 	BatchAddSetKeyPrefix2Name bool                  `json:"batch_add_set_key_prefix_2_name"`
 	Channel                   *model.Channel        `json:"channel"`
 }
@@ -615,6 +618,11 @@ func AddChannel(c *gin.Context) {
 	case "multi_to_single":
 		addChannelRequest.Channel.ChannelInfo.IsMultiKey = true
 		addChannelRequest.Channel.ChannelInfo.MultiKeyMode = addChannelRequest.MultiKeyMode
+		if addChannelRequest.MultiKeyMode == constant.MultiKeyModeSticky {
+			addChannelRequest.Channel.ChannelInfo.MultiKeyErrorThreshold = addChannelRequest.MultiKeyErrorThreshold
+			addChannelRequest.Channel.ChannelInfo.MultiKeyRecoverySeconds = addChannelRequest.MultiKeyRecoverySeconds
+			addChannelRequest.Channel.ChannelInfo.MultiKeyMaxRecoveryFails = addChannelRequest.MultiKeyMaxRecoveryFails
+		}
 		if addChannelRequest.Channel.Type == constant.ChannelTypeVertexAi && addChannelRequest.Channel.GetOtherSettings().VertexKeyType != dto.VertexKeyTypeAPIKey {
 			array, err := getVertexArrayKeys(addChannelRequest.Channel.Key)
 			if err != nil {
@@ -892,8 +900,11 @@ func DeleteChannelBatch(c *gin.Context) {
 
 type PatchChannel struct {
 	model.Channel
-	MultiKeyMode *string `json:"multi_key_mode"`
-	KeyMode      *string `json:"key_mode"` // 多key模式下密钥覆盖或者追加
+	MultiKeyMode             *string `json:"multi_key_mode"`
+	MultiKeyErrorThreshold   *int    `json:"multi_key_error_threshold"`
+	MultiKeyRecoverySeconds  *int    `json:"multi_key_recovery_seconds"`
+	MultiKeyMaxRecoveryFails *int    `json:"multi_key_max_recovery_fails"`
+	KeyMode                  *string `json:"key_mode"` // 多key模式下密钥覆盖或者追加
 }
 
 func UpdateChannel(c *gin.Context) {
@@ -928,6 +939,16 @@ func UpdateChannel(c *gin.Context) {
 	// If the request explicitly specifies a new MultiKeyMode, apply it on top of the original info.
 	if channel.MultiKeyMode != nil && *channel.MultiKeyMode != "" {
 		channel.ChannelInfo.MultiKeyMode = constant.MultiKeyMode(*channel.MultiKeyMode)
+	}
+	// Sticky-mode config overrides (apply only when provided).
+	if channel.MultiKeyErrorThreshold != nil {
+		channel.ChannelInfo.MultiKeyErrorThreshold = *channel.MultiKeyErrorThreshold
+	}
+	if channel.MultiKeyRecoverySeconds != nil {
+		channel.ChannelInfo.MultiKeyRecoverySeconds = *channel.MultiKeyRecoverySeconds
+	}
+	if channel.MultiKeyMaxRecoveryFails != nil {
+		channel.ChannelInfo.MultiKeyMaxRecoveryFails = *channel.MultiKeyMaxRecoveryFails
 	}
 
 	// 处理多key模式下的密钥追加/覆盖逻辑
@@ -1311,11 +1332,15 @@ func CopyChannel(c *gin.Context) {
 // MultiKeyManageRequest represents the request for multi-key management operations
 type MultiKeyManageRequest struct {
 	ChannelId int    `json:"channel_id"`
-	Action    string `json:"action"`              // "disable_key", "enable_key", "delete_key", "delete_disabled_keys", "get_key_status"
+	Action    string `json:"action"`              // "disable_key", "enable_key", "delete_key", "delete_disabled_keys", "get_key_status", "set_sticky_config"
 	KeyIndex  *int   `json:"key_index,omitempty"` // for disable_key, enable_key, and delete_key actions
 	Page      int    `json:"page,omitempty"`      // for get_key_status pagination
 	PageSize  int    `json:"page_size,omitempty"` // for get_key_status pagination
 	Status    *int   `json:"status,omitempty"`    // for get_key_status filtering: 1=enabled, 2=manual_disabled, 3=auto_disabled, nil=all
+	// for set_sticky_config
+	ErrorThreshold   *int `json:"error_threshold,omitempty"`
+	RecoverySeconds  *int `json:"recovery_seconds,omitempty"`
+	MaxRecoveryFails *int `json:"max_recovery_fails,omitempty"`
 }
 
 // MultiKeyStatusResponse represents the response for key status query
@@ -1332,11 +1357,13 @@ type MultiKeyStatusResponse struct {
 }
 
 type KeyStatus struct {
-	Index        int    `json:"index"`
-	Status       int    `json:"status"` // 1: enabled, 2: disabled
-	DisabledTime int64  `json:"disabled_time,omitempty"`
-	Reason       string `json:"reason,omitempty"`
-	KeyPreview   string `json:"key_preview"` // first 10 chars of key for identification
+	Index         int    `json:"index"`
+	Status        int    `json:"status"` // 1: enabled, 2: disabled
+	DisabledTime  int64  `json:"disabled_time,omitempty"`
+	Reason        string `json:"reason,omitempty"`
+	KeyPreview    string `json:"key_preview"`              // first 10 chars of key for identification
+	ErrorCount    int    `json:"error_count,omitempty"`    // sticky: consecutive error count
+	RecoveryFails int    `json:"recovery_fails,omitempty"` // sticky: failed recovery cycles
 }
 
 // ManageMultiKeys handles multi-key management operations
@@ -1434,12 +1461,22 @@ func ManageMultiKeys(c *gin.Context) {
 				keyPreview = key[:10] + "..."
 			}
 
+			var errorCount, recoveryFails int
+			if channel.ChannelInfo.MultiKeyErrorCount != nil {
+				errorCount = channel.ChannelInfo.MultiKeyErrorCount[i]
+			}
+			if channel.ChannelInfo.MultiKeyRecoveryFails != nil {
+				recoveryFails = channel.ChannelInfo.MultiKeyRecoveryFails[i]
+			}
+
 			allKeyStatusList = append(allKeyStatusList, KeyStatus{
-				Index:        i,
-				Status:       status,
-				DisabledTime: disabledTime,
-				Reason:       reason,
-				KeyPreview:   keyPreview,
+				Index:         i,
+				Status:        status,
+				DisabledTime:  disabledTime,
+				Reason:        reason,
+				KeyPreview:    keyPreview,
+				ErrorCount:    errorCount,
+				RecoveryFails: recoveryFails,
 			})
 		}
 
@@ -1491,6 +1528,28 @@ func ManageMultiKeys(c *gin.Context) {
 				ManualDisabledCount: manualDisabledCount, // Overall statistics
 				AutoDisabledCount:   autoDisabledCount,   // Overall statistics
 			},
+		})
+		return
+
+	case "set_sticky_config":
+		if request.ErrorThreshold != nil {
+			channel.ChannelInfo.MultiKeyErrorThreshold = *request.ErrorThreshold
+		}
+		if request.RecoverySeconds != nil {
+			channel.ChannelInfo.MultiKeyRecoverySeconds = *request.RecoverySeconds
+		}
+		if request.MaxRecoveryFails != nil {
+			channel.ChannelInfo.MultiKeyMaxRecoveryFails = *request.MaxRecoveryFails
+		}
+		err = channel.Update()
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		model.InitChannelCache()
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "配置已保存",
 		})
 		return
 

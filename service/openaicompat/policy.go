@@ -38,9 +38,9 @@ func ShouldChatCompletionsUseResponses(channelProtocol string, channelID int, ch
 	}
 }
 
-// ShouldResponsesDowngradeToChatCompletions reports whether an incoming
-// Responses API request must be downgraded to Chat Completions because the
-// channel's upstream only speaks the legacy protocol.
+// ShouldResponsesDowngradeToChatCompletions decides whether an incoming Responses API
+// request must be downconverted to Chat Completions before hitting the upstream. This is
+// true only for legacy-only channels ("chat"), whose upstream cannot speak /v1/responses.
 func ShouldResponsesDowngradeToChatCompletions(channelProtocol string) bool {
 	return channelProtocol == dto.OpenAIProtocolChatCompletions
 }

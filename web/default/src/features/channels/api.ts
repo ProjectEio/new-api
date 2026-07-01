@@ -358,6 +358,24 @@ export async function getMultiKeyStatus(
 }
 
 /**
+ * Update sticky-mode config for a multi-key channel
+ */
+export async function setMultiKeyStickyConfig(
+  channelId: number,
+  config: {
+    error_threshold?: number
+    recovery_seconds?: number
+    max_recovery_fails?: number
+  }
+): Promise<{ success: boolean; message?: string }> {
+  return manageMultiKeys({
+    channel_id: channelId,
+    action: 'set_sticky_config',
+    ...config,
+  }) as Promise<{ success: boolean; message?: string }>
+}
+
+/**
  * Enable a specific key in multi-key channel
  */
 export async function enableMultiKey(

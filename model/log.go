@@ -9,6 +9,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
@@ -254,42 +255,104 @@ func RecordTopupLog(userId int, content string, callerIp string, paymentMethod s
 	}
 }
 
+// shouldRecordRequestIp reports whether IP/UA should be recorded for a request,
+// which is the union of the global request-log switch and the per-user setting.
+func shouldRecordRequestIp(userId int) bool {
+	if operation_setting.GetRequestLogSetting().Enabled {
+		return true
+	}
+	if settingMap, err := GetUserSetting(userId, false); err == nil && settingMap.RecordIpLog {
+		return true
+	}
+	return false
+}
+
+// resolveClientIdentity resolves the loggable client IP, an optional CDN edge IP,
+// and the User-Agent for a request, honoring the request-log IP-source and CDN
+// configuration. When a CDN real-IP header is configured and present, the real
+// client comes from that header while the direct TCP peer is reported as the CDN
+// edge; otherwise the IP is taken from the reverse-proxy chain (auto) or from the
+// direct TCP connection (real network).
+func resolveClientIdentity(c *gin.Context) (ip string, cdnIp string, userAgent string) {
+	if c == nil || c.Request == nil {
+		return "", "", ""
+	}
+	s := operation_setting.GetRequestLogSetting()
+	if header := strings.TrimSpace(s.CdnRealIpHeader); header != "" {
+		if real := firstForwardedIp(c.GetHeader(header)); real != "" {
+			ip = real
+			if edge := c.RemoteIP(); edge != "" && edge != real {
+				cdnIp = edge
+			}
+		}
+	}
+	if ip == "" {
+		if s.UseRealNetworkIp() {
+			ip = c.RemoteIP()
+		} else {
+			ip = c.ClientIP()
+		}
+	}
+	if s.RecordUserAgent {
+		userAgent = c.Request.UserAgent()
+	}
+	return ip, cdnIp, userAgent
+}
+
+// firstForwardedIp returns the first IP of a comma-separated forwarded-for style
+// header value (the originating client per CDN/proxy convention).
+func firstForwardedIp(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if idx := strings.IndexByte(value, ','); idx >= 0 {
+		value = strings.TrimSpace(value[:idx])
+	}
+	return value
+}
+
 func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string, tokenId int, useTimeSeconds int,
 	isStream bool, group string, other map[string]interface{}) {
 	logger.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s", userId, channelId, modelName, tokenName, common.LocalLogPreview(content)))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
 	upstreamRequestId := c.GetString(common.UpstreamRequestIdKey)
-	otherStr := common.MapToJsonStr(other)
-	// 判断是否需要记录 IP
-	needRecordIp := false
-	if settingMap, err := GetUserSetting(userId, false); err == nil {
-		if settingMap.RecordIpLog {
-			needRecordIp = true
+	// 判断是否需要记录 IP（全局开关或用户级设置任一开启）
+	var logIp string
+	if shouldRecordRequestIp(userId) {
+		var cdnIp, userAgent string
+		logIp, cdnIp, userAgent = resolveClientIdentity(c)
+		if cdnIp != "" || userAgent != "" {
+			if other == nil {
+				other = map[string]interface{}{}
+			}
+			if cdnIp != "" {
+				other["cdn_ip"] = cdnIp
+			}
+			if userAgent != "" {
+				other["user_agent"] = userAgent
+			}
 		}
 	}
+	otherStr := common.MapToJsonStr(other)
 	log := &Log{
-		UserId:           userId,
-		Username:         username,
-		CreatedAt:        common.GetTimestamp(),
-		Type:             LogTypeError,
-		Content:          content,
-		PromptTokens:     0,
-		CompletionTokens: 0,
-		TokenName:        tokenName,
-		ModelName:        modelName,
-		Quota:            0,
-		ChannelId:        channelId,
-		TokenId:          tokenId,
-		UseTime:          useTimeSeconds,
-		IsStream:         isStream,
-		Group:            group,
-		Ip: func() string {
-			if needRecordIp {
-				return c.ClientIP()
-			}
-			return ""
-		}(),
+		UserId:            userId,
+		Username:          username,
+		CreatedAt:         common.GetTimestamp(),
+		Type:              LogTypeError,
+		Content:           content,
+		PromptTokens:      0,
+		CompletionTokens:  0,
+		TokenName:         tokenName,
+		ModelName:         modelName,
+		Quota:             0,
+		ChannelId:         channelId,
+		TokenId:           tokenId,
+		UseTime:           useTimeSeconds,
+		IsStream:          isStream,
+		Group:             group,
+		Ip:                logIp,
 		RequestId:         requestId,
 		UpstreamRequestId: upstreamRequestId,
 		Other:             otherStr,
@@ -324,36 +387,41 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	requestId := c.GetString(common.RequestIdKey)
 	upstreamRequestId := c.GetString(common.UpstreamRequestIdKey)
 	createdAt := common.GetTimestamp()
-	otherStr := common.MapToJsonStr(params.Other)
-	// 判断是否需要记录 IP
-	needRecordIp := false
-	if settingMap, err := GetUserSetting(userId, false); err == nil {
-		if settingMap.RecordIpLog {
-			needRecordIp = true
+	// 判断是否需要记录 IP（全局开关或用户级设置任一开启）
+	var logIp string
+	if shouldRecordRequestIp(userId) {
+		var cdnIp, userAgent string
+		logIp, cdnIp, userAgent = resolveClientIdentity(c)
+		if cdnIp != "" || userAgent != "" {
+			if params.Other == nil {
+				params.Other = map[string]interface{}{}
+			}
+			if cdnIp != "" {
+				params.Other["cdn_ip"] = cdnIp
+			}
+			if userAgent != "" {
+				params.Other["user_agent"] = userAgent
+			}
 		}
 	}
+	otherStr := common.MapToJsonStr(params.Other)
 	log := &Log{
-		UserId:           userId,
-		Username:         username,
-		CreatedAt:        createdAt,
-		Type:             LogTypeConsume,
-		Content:          params.Content,
-		PromptTokens:     params.PromptTokens,
-		CompletionTokens: params.CompletionTokens,
-		TokenName:        params.TokenName,
-		ModelName:        params.ModelName,
-		Quota:            params.Quota,
-		ChannelId:        params.ChannelId,
-		TokenId:          params.TokenId,
-		UseTime:          params.UseTimeSeconds,
-		IsStream:         params.IsStream,
-		Group:            params.Group,
-		Ip: func() string {
-			if needRecordIp {
-				return c.ClientIP()
-			}
-			return ""
-		}(),
+		UserId:            userId,
+		Username:          username,
+		CreatedAt:         createdAt,
+		Type:              LogTypeConsume,
+		Content:           params.Content,
+		PromptTokens:      params.PromptTokens,
+		CompletionTokens:  params.CompletionTokens,
+		TokenName:         params.TokenName,
+		ModelName:         params.ModelName,
+		Quota:             params.Quota,
+		ChannelId:         params.ChannelId,
+		TokenId:           params.TokenId,
+		UseTime:           params.UseTimeSeconds,
+		IsStream:          params.IsStream,
+		Group:             params.Group,
+		Ip:                logIp,
 		RequestId:         requestId,
 		UpstreamRequestId: upstreamRequestId,
 		Other:             otherStr,

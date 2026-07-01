@@ -60,21 +60,11 @@ func TestShouldChatCompletionsUseResponses_AutoDefersToDisabledGlobal(t *testing
 	assert.False(t, ShouldChatCompletionsUseResponses(dto.OpenAIProtocolChatCompletions, 7, 1, "gpt-4o"))
 }
 
-// A Responses request must be downgraded to Chat Completions only when the
-// channel's upstream is legacy-only.
+// Only a legacy-only channel ("chat") downconverts incoming /v1/responses traffic to Chat
+// Completions; responses-native and auto channels keep speaking responses upstream.
 func TestShouldResponsesDowngradeToChatCompletions(t *testing.T) {
-	cases := []struct {
-		channelProtocol string
-		want            bool
-	}{
-		{dto.OpenAIProtocolChatCompletions, true},
-		{dto.OpenAIProtocolResponses, false},
-		{dto.OpenAIProtocolAuto, false},
-		{"garbage", false},
-	}
-	for _, tc := range cases {
-		t.Run("protocol="+tc.channelProtocol, func(t *testing.T) {
-			assert.Equal(t, tc.want, ShouldResponsesDowngradeToChatCompletions(tc.channelProtocol))
-		})
-	}
+	assert.True(t, ShouldResponsesDowngradeToChatCompletions(dto.OpenAIProtocolChatCompletions))
+	assert.False(t, ShouldResponsesDowngradeToChatCompletions(dto.OpenAIProtocolResponses))
+	assert.False(t, ShouldResponsesDowngradeToChatCompletions(dto.OpenAIProtocolAuto))
+	assert.False(t, ShouldResponsesDowngradeToChatCompletions("something-else"))
 }

@@ -349,6 +349,13 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 
 func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError) {
 	logger.LogError(c, fmt.Sprintf("channel error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, common.LocalLogPreview(err.Error())))
+	// Sticky multi-key: drop this user's key affinity so the next request (or retry)
+	// is routed to another key. No-op for non-sticky channels (no affinity entry).
+	if channelError.IsMultiKey {
+		if userId := c.GetInt("id"); userId > 0 {
+			model.ClearStickyKeyForUser(channelError.ChannelId, userId)
+		}
+	}
 	// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
 	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
 	if service.ShouldDisableChannel(err) && channelError.AutoBan {

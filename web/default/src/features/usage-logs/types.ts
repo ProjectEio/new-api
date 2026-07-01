@@ -116,6 +116,9 @@ export interface LogOtherData {
   // Login audit fields (type=7); visible to the log owner
   login_method?: string
   user_agent?: string
+  // CDN edge IP: set when the request reached us via a configured CDN real-IP
+  // header. `ip` holds the resolved real client; this holds the CDN/proxy edge.
+  cdn_ip?: string
   request_path?: string
   request_conversion?: string[]
   ws?: boolean

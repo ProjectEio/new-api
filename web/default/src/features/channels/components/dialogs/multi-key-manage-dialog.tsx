@@ -22,6 +22,7 @@ import { Loader2, RefreshCw, Trash2, Power, PowerOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -37,6 +38,7 @@ import { Dialog } from '@/components/dialog'
 import { StatusBadge } from '@/components/status-badge'
 import {
   getMultiKeyStatus,
+  setMultiKeyStickyConfig,
   enableMultiKey,
   disableMultiKey,
   deleteMultiKey,
@@ -87,15 +89,61 @@ export function MultiKeyManageDialog({
     useState<MultiKeyConfirmAction | null>(null)
   const [isPerformingAction, setIsPerformingAction] = useState(false)
 
+  // Sticky-mode config editor state
+  const isSticky = currentRow?.channel_info?.multi_key_mode === 'sticky'
+  const [stickyErrorThreshold, setStickyErrorThreshold] = useState<
+    number | undefined
+  >(undefined)
+  const [stickyRecoverySeconds, setStickyRecoverySeconds] = useState<
+    number | undefined
+  >(undefined)
+  const [stickyMaxRecoveryFails, setStickyMaxRecoveryFails] = useState<
+    number | undefined
+  >(undefined)
+  const [savingStickyConfig, setSavingStickyConfig] = useState(false)
+
   // Reset and load data when dialog opens
   useEffect(() => {
     if (open && currentRow) {
       setCurrentPage(1)
       setStatusFilter(null)
+      setStickyErrorThreshold(
+        currentRow.channel_info?.multi_key_error_threshold || undefined
+      )
+      setStickyRecoverySeconds(
+        currentRow.channel_info?.multi_key_recovery_seconds || undefined
+      )
+      setStickyMaxRecoveryFails(
+        currentRow.channel_info?.multi_key_max_recovery_fails || undefined
+      )
       loadKeyStatus(1, pageSize, null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currentRow?.id])
+
+  const handleSaveStickyConfig = async () => {
+    if (!currentRow) return
+    setSavingStickyConfig(true)
+    try {
+      const res = await setMultiKeyStickyConfig(currentRow.id, {
+        error_threshold: stickyErrorThreshold,
+        recovery_seconds: stickyRecoverySeconds,
+        max_recovery_fails: stickyMaxRecoveryFails,
+      })
+      if (res.success) {
+        toast.success(res.message || t('Configuration saved'))
+        queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+      } else {
+        toast.error(res.message || t('Operation failed'))
+      }
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
+    } finally {
+      setSavingStickyConfig(false)
+    }
+  }
 
   const loadKeyStatus = async (
     page: number = currentPage,
@@ -231,7 +279,9 @@ export function MultiKeyManageDialog({
                 label={
                   currentRow.channel_info.multi_key_mode === 'random'
                     ? t('Random')
-                    : t('Polling')
+                    : currentRow.channel_info.multi_key_mode === 'sticky'
+                      ? t('Sticky')
+                      : t('Polling')
                 }
                 variant='neutral'
                 copyable={false}
@@ -266,6 +316,80 @@ export function MultiKeyManageDialog({
               total={total}
             />
           </div>
+
+          {isSticky && (
+            <div className='bg-muted/20 shrink-0 rounded-md border p-3'>
+              <div className='mb-2 text-sm font-medium'>
+                {t('Sticky Strategy Config')}
+              </div>
+              <div className='flex flex-wrap items-end gap-3'>
+                <div className='space-y-1'>
+                  <label className='text-muted-foreground text-xs'>
+                    {t('Error Threshold')}
+                  </label>
+                  <Input
+                    type='number'
+                    min={1}
+                    placeholder='3'
+                    className='w-28'
+                    value={stickyErrorThreshold ?? ''}
+                    onChange={(e) =>
+                      setStickyErrorThreshold(
+                        e.target.value === ''
+                          ? undefined
+                          : Number(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+                <div className='space-y-1'>
+                  <label className='text-muted-foreground text-xs'>
+                    {t('Recovery Interval (s)')}
+                  </label>
+                  <Input
+                    type='number'
+                    min={1}
+                    placeholder='300'
+                    className='w-28'
+                    value={stickyRecoverySeconds ?? ''}
+                    onChange={(e) =>
+                      setStickyRecoverySeconds(
+                        e.target.value === ''
+                          ? undefined
+                          : Number(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+                <div className='space-y-1'>
+                  <label className='text-muted-foreground text-xs'>
+                    {t('Max Recovery Fails')}
+                  </label>
+                  <Input
+                    type='number'
+                    min={1}
+                    placeholder='3'
+                    className='w-28'
+                    value={stickyMaxRecoveryFails ?? ''}
+                    onChange={(e) =>
+                      setStickyMaxRecoveryFails(
+                        e.target.value === ''
+                          ? undefined
+                          : Number(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+                <Button
+                  size='sm'
+                  onClick={handleSaveStickyConfig}
+                  disabled={savingStickyConfig}
+                >
+                  {t('Save')}
+                </Button>
+              </div>
+            </div>
+          )}
 
           <Separator className='shrink-0' />
 
@@ -377,6 +501,24 @@ export function MultiKeyManageDialog({
                     cellClassName: 'max-w-xs truncate text-sm',
                     cell: (key) => key.reason || '-',
                   },
+                  ...(currentRow.channel_info?.multi_key_mode === 'sticky'
+                    ? [
+                        {
+                          id: 'error-count',
+                          header: t('Errors'),
+                          className: 'w-20',
+                          cellClassName: 'font-mono text-sm',
+                          cell: (key: KeyStatus) => key.error_count ?? 0,
+                        },
+                        {
+                          id: 'recovery-fails',
+                          header: t('Recovery Fails'),
+                          className: 'w-28',
+                          cellClassName: 'font-mono text-sm',
+                          cell: (key: KeyStatus) => key.recovery_fails ?? 0,
+                        },
+                      ]
+                    : []),
                   {
                     id: 'disabled-time',
                     header: t('Disabled Time'),

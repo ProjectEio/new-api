@@ -70,6 +70,25 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		return types.NewError(fmt.Errorf("invalid api type: %d", info.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
 	}
 	adaptor.Init(info)
+
+	// Legacy chat-only channels cannot speak /v1/responses: downconvert the request to Chat
+	// Completions, relay it, and rewrite the chat response back into Responses format.
+	if info.RelayMode != relayconstant.RelayModeResponsesCompact &&
+		!model_setting.GetGlobalSettings().PassThroughRequestEnabled &&
+		!info.ChannelSetting.PassThroughBodyEnabled &&
+		service.ShouldResponsesDowngradeToChatCompletions(info.ChannelOtherSettings.OpenAIProtocol) {
+		usage, newApiErr := responsesViaChatCompletions(c, info, adaptor, request)
+		if newApiErr != nil {
+			return newApiErr
+		}
+		if strings.HasPrefix(info.OriginModelName, "gpt-4o-audio") {
+			service.PostAudioConsumeQuota(c, info, usage, "")
+		} else {
+			service.PostTextConsumeQuota(c, info, usage, nil)
+		}
+		return nil
+	}
+
 	var requestBody io.Reader
 	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
 		storage, err := common.GetBodyStorage(c)

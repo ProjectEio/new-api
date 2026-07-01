@@ -427,6 +427,10 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const showAdminIp =
     !!props.log.ip && (showTiming || (props.isAdmin && isTopup))
   const adminInfo = other?.admin_info
+  // Request IP identity (consume/error logs): user-agent and, when the request
+  // arrived via a configured CDN real-IP header, the CDN/proxy edge IP.
+  const requestUserAgent = other?.user_agent
+  const cdnEdgeIp = other?.cdn_ip
   const topupAuditFields =
     isTopup && props.isAdmin && adminInfo
       ? ([
@@ -616,13 +620,38 @@ export function DetailsDialog(props: DetailsDialogProps) {
             <DetailRow
               label={t('IP Address')}
               value={
-                <span className='flex items-center gap-1'>
+                <span className='flex flex-wrap items-center gap-1'>
                   <Globe className='size-3 text-amber-500' aria-hidden='true' />
                   {props.log.ip}
+                  {cdnEdgeIp && (
+                    <StatusBadge
+                      label={t('via CDN')}
+                      variant='blue'
+                      size='sm'
+                      copyable={false}
+                    />
+                  )}
                 </span>
               }
               mono
             />
+          )}
+
+          {showAdminIp && props.isAdmin && cdnEdgeIp && (
+            <DetailRow
+              label={t('CDN Source')}
+              value={
+                <span className='flex items-center gap-1'>
+                  <Cloud className='size-3 text-sky-500' aria-hidden='true' />
+                  {cdnEdgeIp}
+                </span>
+              }
+              mono
+            />
+          )}
+
+          {showAdminIp && requestUserAgent && (
+            <DetailRow label={t('User Agent')} value={requestUserAgent} />
           )}
 
           {showTiming && props.log.use_time > 0 && (

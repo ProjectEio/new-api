@@ -29,7 +29,10 @@ export const channelInfoSchema = z.object({
   multi_key_disabled_reason: z.record(z.string(), z.string()).optional(),
   multi_key_disabled_time: z.record(z.string(), z.number()).optional(),
   multi_key_polling_index: z.number().default(0),
-  multi_key_mode: z.enum(['random', 'polling']).default('random'),
+  multi_key_mode: z.enum(['random', 'polling', 'sticky']).default('random'),
+  multi_key_error_threshold: z.number().optional(),
+  multi_key_recovery_seconds: z.number().optional(),
+  multi_key_max_recovery_fails: z.number().optional(),
 })
 
 export type ChannelInfo = z.infer<typeof channelInfoSchema>
@@ -218,6 +221,8 @@ export interface KeyStatus {
   disabled_time?: number
   reason?: string
   key_preview?: string
+  error_count?: number
+  recovery_fails?: number
 }
 
 export type MultiKeyConfirmAction = {
@@ -305,10 +310,14 @@ export interface MultiKeyManageParams {
     | 'disable_all_keys'
     | 'delete_key'
     | 'delete_disabled_keys'
+    | 'set_sticky_config'
   key_index?: number
   page?: number
   page_size?: number
   status?: number // 1=enabled, 2=manual_disabled, 3=auto_disabled
+  error_threshold?: number
+  recovery_seconds?: number
+  max_recovery_fails?: number
 }
 
 export interface BatchDeleteParams {

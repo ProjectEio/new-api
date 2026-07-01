@@ -78,6 +78,14 @@ func RedisGet(key string) (string, error) {
 	return val, err
 }
 
+func RedisExpire(key string, expiration time.Duration) error {
+	if DebugEnabled {
+		SysLog(fmt.Sprintf("Redis EXPIRE: key=%s, expiration=%v", key, expiration))
+	}
+	ctx := context.Background()
+	return RDB.Expire(ctx, key, expiration).Err()
+}
+
 //func RedisExpire(key string, expiration time.Duration) error {
 //	ctx := context.Background()
 //	return RDB.Expire(ctx, key, expiration).Err()

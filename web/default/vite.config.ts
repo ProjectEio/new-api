@@ -55,7 +55,14 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (!id.includes('node_modules')) return
-            if (/[\\/](react|react-dom)[\\/]/.test(id)) return 'vendor-react'
+            // Keep ONLY react core here (react, react-dom, and react-dom's
+            // scheduler dep) so vendor-react is a dependency-free leaf and
+            // can't form a cross-chunk cycle — a cycle leaves React undefined
+            // when a consumer chunk's top-level createContext() runs first.
+            // Anchor to node_modules/ so we don't match scoped packages whose
+            // name is literally "react" (e.g. @base-ui/react).
+            if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id))
+              return 'vendor-react'
             if (/[\\/](@base-ui|@radix-ui)[\\/]/.test(id))
               return 'vendor-ui-primitives'
             if (/[\\/]@tanstack[\\/]/.test(id)) return 'vendor-tanstack'

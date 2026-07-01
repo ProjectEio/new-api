@@ -180,7 +180,11 @@ export const channelFormSchema = z
     other: z.string().optional(),
     // Multi-key options (not sent to backend directly)
     multi_key_mode: z.enum(['single', 'batch', 'multi_to_single']).optional(),
-    multi_key_type: z.enum(['random', 'polling']).optional(),
+    multi_key_type: z.enum(['random', 'polling', 'sticky']).optional(),
+    // Sticky multi-key strategy config (optional; backend uses defaults when unset)
+    multi_key_error_threshold: z.coerce.number().int().min(0).optional(),
+    multi_key_recovery_seconds: z.coerce.number().int().min(0).optional(),
+    multi_key_max_recovery_fails: z.coerce.number().int().min(0).optional(),
     batch_add_set_key_prefix_2_name: z.boolean().optional(),
     key_mode: z.enum(['append', 'replace']).optional(), // For editing multi-key channels
     // Channel extra settings (stored in setting JSON, not sent directly)
@@ -462,6 +466,12 @@ export function transformChannelToFormDefaults(
     other: channel.other || '',
     multi_key_mode: 'single',
     multi_key_type: channel.channel_info.multi_key_mode || 'random',
+    multi_key_error_threshold:
+      channel.channel_info.multi_key_error_threshold || undefined,
+    multi_key_recovery_seconds:
+      channel.channel_info.multi_key_recovery_seconds || undefined,
+    multi_key_max_recovery_fails:
+      channel.channel_info.multi_key_max_recovery_fails || undefined,
     batch_add_set_key_prefix_2_name: false,
     key_mode: 'append', // Default to append mode for editing multi-key channels
     // Channel extra settings
@@ -635,7 +645,10 @@ function normalizeBaseUrl(value: string | undefined): string {
  */
 export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
   mode: 'single' | 'batch' | 'multi_to_single'
-  multi_key_mode?: 'random' | 'polling'
+  multi_key_mode?: 'random' | 'polling' | 'sticky'
+  multi_key_error_threshold?: number
+  multi_key_recovery_seconds?: number
+  multi_key_max_recovery_fails?: number
   batch_add_set_key_prefix_2_name?: boolean
   channel: Partial<Channel>
 } {
@@ -676,6 +689,18 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
     mode,
     multi_key_mode:
       mode === 'multi_to_single' ? formData.multi_key_type : undefined,
+    multi_key_error_threshold:
+      mode === 'multi_to_single' && formData.multi_key_type === 'sticky'
+        ? formData.multi_key_error_threshold
+        : undefined,
+    multi_key_recovery_seconds:
+      mode === 'multi_to_single' && formData.multi_key_type === 'sticky'
+        ? formData.multi_key_recovery_seconds
+        : undefined,
+    multi_key_max_recovery_fails:
+      mode === 'multi_to_single' && formData.multi_key_type === 'sticky'
+        ? formData.multi_key_max_recovery_fails
+        : undefined,
     batch_add_set_key_prefix_2_name:
       mode === 'batch' ? formData.batch_add_set_key_prefix_2_name : undefined,
     channel,

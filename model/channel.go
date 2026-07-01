@@ -203,7 +203,74 @@ func (channel *Channel) GetKeys() []string {
 	return keys
 }
 
-func (channel *Channel) GetNextEnabledKey() (string, int, *types.NewAPIError) {
+func (info *ChannelInfo) StickyErrorThreshold() int {
+	if info.MultiKeyErrorThreshold > 0 {
+		return info.MultiKeyErrorThreshold
+	}
+	return constant.DefaultMultiKeyErrorThreshold
+}
+
+func (info *ChannelInfo) StickyRecoverySeconds() int {
+	if info.MultiKeyRecoverySeconds > 0 {
+		return info.MultiKeyRecoverySeconds
+	}
+	return constant.DefaultMultiKeyRecoverySeconds
+}
+
+func (info *ChannelInfo) StickyMaxRecoveryFails() int {
+	if info.MultiKeyMaxRecoveryFails > 0 {
+		return info.MultiKeyMaxRecoveryFails
+	}
+	return constant.DefaultMultiKeyMaxRecoveryFails
+}
+
+func containsInt(list []int, target int) bool {
+	for _, v := range list {
+		if v == target {
+			return true
+		}
+	}
+	return false
+}
+
+// recoverStickyKeys re-enables disabled keys whose recovery interval has elapsed
+// and that have not exceeded the max recovery-failure count, so they get another
+// try. Returns true if any key was re-enabled. Caller must hold the polling lock.
+func (channel *Channel) recoverStickyKeys(keys []string) bool {
+	statusList := channel.ChannelInfo.MultiKeyStatusList
+	if len(statusList) == 0 {
+		return false
+	}
+	recoverySeconds := int64(channel.ChannelInfo.StickyRecoverySeconds())
+	maxFails := channel.ChannelInfo.StickyMaxRecoveryFails()
+	now := common.GetTimestamp()
+	changed := false
+	for idx := range keys {
+		status, ok := statusList[idx]
+		if !ok || status == common.ChannelStatusEnabled {
+			continue
+		}
+		if channel.ChannelInfo.MultiKeyRecoveryFails != nil &&
+			channel.ChannelInfo.MultiKeyRecoveryFails[idx] >= maxFails {
+			continue // permanently disabled until manual recovery
+		}
+		var disabledAt int64
+		if channel.ChannelInfo.MultiKeyDisabledTime != nil {
+			disabledAt = channel.ChannelInfo.MultiKeyDisabledTime[idx]
+		}
+		if disabledAt > 0 && now-disabledAt < recoverySeconds {
+			continue // still within cool-down window
+		}
+		delete(statusList, idx)
+		if channel.ChannelInfo.MultiKeyErrorCount != nil {
+			delete(channel.ChannelInfo.MultiKeyErrorCount, idx)
+		}
+		changed = true
+	}
+	return changed
+}
+
+func (channel *Channel) GetNextEnabledKey(userId int, triedIndexes []int) (string, int, *types.NewAPIError) {
 	// If not in multi-key mode, return the original key string directly.
 	if !channel.ChannelInfo.IsMultiKey {
 		return channel.Key, 0, nil
@@ -219,6 +286,12 @@ func (channel *Channel) GetNextEnabledKey() (string, int, *types.NewAPIError) {
 	lock := GetChannelPollingLock(channel.Id)
 	lock.Lock()
 	defer lock.Unlock()
+
+	isSticky := channel.ChannelInfo.MultiKeyMode == constant.MultiKeyModeSticky
+	if isSticky {
+		// Reactively re-enable keys whose recovery cool-down has elapsed.
+		channel.recoverStickyKeys(keys)
+	}
 
 	statusList := channel.ChannelInfo.MultiKeyStatusList
 	// helper to get key status, default to enabled when missing
@@ -250,6 +323,40 @@ func (channel *Channel) GetNextEnabledKey() (string, int, *types.NewAPIError) {
 	case constant.MultiKeyModeRandom:
 		// Randomly pick one enabled key
 		selectedIdx := enabledIdx[rand.Intn(len(enabledIdx))]
+		return keys[selectedIdx], selectedIdx, nil
+	case constant.MultiKeyModeSticky:
+		defer func() {
+			if !common.MemoryCacheEnabled {
+				_ = channel.SaveChannelInfo()
+			}
+		}()
+		// Exclude keys already tried during this request so a retry lands on the next key.
+		avail := enabledIdx
+		if len(triedIndexes) > 0 {
+			filtered := make([]int, 0, len(enabledIdx))
+			for _, idx := range enabledIdx {
+				if !containsInt(triedIndexes, idx) {
+					filtered = append(filtered, idx)
+				}
+			}
+			if len(filtered) > 0 {
+				avail = filtered
+			}
+		}
+		// Reuse the user's sticky key while it is still available.
+		if userId > 0 {
+			if sticky, ok := getStickyKeyIndex(channel.Id, userId); ok && containsInt(avail, sticky) {
+				return keys[sticky], sticky, nil
+			}
+		}
+		// Assign a key round-robin across available keys for even load balancing.
+		start := channel.ChannelInfo.MultiKeyPollingIndex
+		if start < 0 {
+			start = 0
+		}
+		selectedIdx := avail[start%len(avail)]
+		channel.ChannelInfo.MultiKeyPollingIndex = (start + 1) % len(keys)
+		setStickyKeyIndex(channel.Id, userId, selectedIdx)
 		return keys[selectedIdx], selectedIdx, nil
 	case constant.MultiKeyModePolling:
 		// Use channel-specific lock to ensure thread-safe polling
@@ -674,7 +781,34 @@ func handlerMultiKeyUpdate(channel *Channel, usingKey string, status int, reason
 		}
 		if status == common.ChannelStatusEnabled {
 			delete(channel.ChannelInfo.MultiKeyStatusList, keyIndex)
+			// Sticky mode: a healthy call clears the accumulated error/recovery counters.
+			if channel.ChannelInfo.MultiKeyErrorCount != nil {
+				delete(channel.ChannelInfo.MultiKeyErrorCount, keyIndex)
+			}
+			if channel.ChannelInfo.MultiKeyRecoveryFails != nil {
+				delete(channel.ChannelInfo.MultiKeyRecoveryFails, keyIndex)
+			}
 		} else {
+			if channel.ChannelInfo.MultiKeyMode == constant.MultiKeyModeSticky {
+				// Record the error; only disable the key after crossing the threshold.
+				if channel.ChannelInfo.MultiKeyErrorCount == nil {
+					channel.ChannelInfo.MultiKeyErrorCount = make(map[int]int)
+				}
+				channel.ChannelInfo.MultiKeyErrorCount[keyIndex]++
+				if channel.ChannelInfo.MultiKeyErrorCount[keyIndex] < channel.ChannelInfo.StickyErrorThreshold() {
+					if channel.ChannelInfo.MultiKeyDisabledReason == nil {
+						channel.ChannelInfo.MultiKeyDisabledReason = make(map[int]string)
+					}
+					channel.ChannelInfo.MultiKeyDisabledReason[keyIndex] = reason
+					return
+				}
+				// Threshold reached -> disable this key and count a recovery cycle.
+				delete(channel.ChannelInfo.MultiKeyErrorCount, keyIndex)
+				if channel.ChannelInfo.MultiKeyRecoveryFails == nil {
+					channel.ChannelInfo.MultiKeyRecoveryFails = make(map[int]int)
+				}
+				channel.ChannelInfo.MultiKeyRecoveryFails[keyIndex]++
+			}
 			channel.ChannelInfo.MultiKeyStatusList[keyIndex] = status
 			if channel.ChannelInfo.MultiKeyDisabledReason == nil {
 				channel.ChannelInfo.MultiKeyDisabledReason = make(map[int]string)

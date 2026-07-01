@@ -310,6 +310,44 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 	return &modelRequest, shouldSelectChannel, nil
 }
 
+const ginKeyMultiKeyTriedIndexes = "multi_key_tried_indexes"
+
+// getTriedMultiKeyIndexes returns the multi-key indexes already tried for a
+// channel during the current request, so a retry can pick the next key.
+func getTriedMultiKeyIndexes(c *gin.Context, channelId int) []int {
+	v, ok := c.Get(ginKeyMultiKeyTriedIndexes)
+	if !ok {
+		return nil
+	}
+	m, ok := v.(map[int][]int)
+	if !ok {
+		return nil
+	}
+	return m[channelId]
+}
+
+func addTriedMultiKeyIndex(c *gin.Context, channelId int, keyIndex int) {
+	if keyIndex < 0 {
+		return
+	}
+	var m map[int][]int
+	if v, ok := c.Get(ginKeyMultiKeyTriedIndexes); ok {
+		if existing, ok := v.(map[int][]int); ok {
+			m = existing
+		}
+	}
+	if m == nil {
+		m = make(map[int][]int)
+	}
+	for _, idx := range m[channelId] {
+		if idx == keyIndex {
+			return
+		}
+	}
+	m[channelId] = append(m[channelId], keyIndex)
+	c.Set(ginKeyMultiKeyTriedIndexes, m)
+}
+
 func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, modelName string) *types.NewAPIError {
 	c.Set("original_model", modelName) // for retry
 	if channel == nil {
@@ -335,13 +373,16 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	common.SetContextKey(c, constant.ContextKeyChannelModelMapping, channel.GetModelMapping())
 	common.SetContextKey(c, constant.ContextKeyChannelStatusCodeMapping, channel.GetStatusCodeMapping())
 
-	key, index, newAPIError := channel.GetNextEnabledKey()
+	userId := c.GetInt("id")
+	triedKeyIndexes := getTriedMultiKeyIndexes(c, channel.Id)
+	key, index, newAPIError := channel.GetNextEnabledKey(userId, triedKeyIndexes)
 	if newAPIError != nil {
 		return newAPIError
 	}
 	if channel.ChannelInfo.IsMultiKey {
 		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, true)
 		common.SetContextKey(c, constant.ContextKeyChannelMultiKeyIndex, index)
+		addTriedMultiKeyIndex(c, channel.Id, index)
 	} else {
 		// 必须设置为 false，否则在重试到单个 key 的时候会导致日志显示错误
 		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, false)

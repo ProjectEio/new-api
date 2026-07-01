@@ -289,6 +289,10 @@ export type OperationsSettings = {
   WorkerValidKey: string
   WorkerAllowHttpImageRequestEnabled: boolean
   LogConsumeEnabled: boolean
+  'request_log_setting.enabled': boolean
+  'request_log_setting.ip_source': string
+  'request_log_setting.cdn_real_ip_header': string
+  'request_log_setting.record_user_agent': boolean
   'performance_setting.disk_cache_enabled': boolean
   'performance_setting.disk_cache_threshold_mb': number
   'performance_setting.disk_cache_max_size_mb': number
