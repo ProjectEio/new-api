@@ -56,9 +56,6 @@ const createPricingSchema = (t: (key: string) => string) =>
   z
     .object({
       QuotaPerUnit: z.coerce.number().min(0, t('Value must be at least 0')),
-      USDExchangeRate: z.coerce
-        .number()
-        .min(0.0001, t('Exchange rate must be greater than 0')),
       DisplayInCurrencyEnabled: z.boolean(),
       DisplayTokenStatEnabled: z.boolean(),
       general_setting: z.object({
@@ -256,7 +253,7 @@ export function PricingSection({ defaultValues }: PricingSectionProps) {
                   name='general_setting.custom_currency_exchange_rate'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('Units per USD')}</FormLabel>
+                      <FormLabel>{t('Units per CNY')}</FormLabel>
                       <FormControl>
                         <Input
                           type='number'
@@ -272,11 +269,11 @@ export function PricingSection({ defaultValues }: PricingSectionProps) {
                           name={field.name}
                           onBlur={field.onBlur}
                           ref={field.ref}
-                          placeholder={t('e.g. 8 means 1 USD = 8 units')}
+                          placeholder={t('e.g. 8 means 1 CNY = 8 units')}
                         />
                       </FormControl>
                       <FormDescription>
-                        {t('Conversion rate from USD to your custom currency')}
+                        {t('Conversion rate from CNY to your custom currency')}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

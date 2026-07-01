@@ -157,7 +157,8 @@ export function DynamicPricingBreakdown({
 
   const { symbol, rate } = useMemo(() => {
     if (currency.quotaDisplayType === 'CNY') {
-      return { symbol: '¥', rate: currency.usdExchangeRate || 7 }
+      // CNY is the billing base — internal amounts are already ¥, no conversion.
+      return { symbol: '¥', rate: 1 }
     }
     if (currency.quotaDisplayType === 'CUSTOM') {
       return {

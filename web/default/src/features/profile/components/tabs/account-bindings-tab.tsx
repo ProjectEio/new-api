@@ -17,9 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo } from 'react'
-import { Mail, Send } from 'lucide-react'
+import { Mail } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { SiGithub, SiWechat, SiLinux } from 'react-icons/si'
+import { SiGithub, SiLinux } from 'react-icons/si'
 import { handleGitHubOAuth, handleLinuxDOOAuth } from '@/lib/oauth'
 import { useDialogs } from '@/hooks/use-dialog'
 import { useStatus } from '@/hooks/use-status'
@@ -28,8 +28,6 @@ import { StatusBadge } from '@/components/status-badge'
 import { OAUTH_BIND_STORAGE_KEY } from '@/features/auth/constants'
 import type { UserProfile, BindingItem } from '../../types'
 import { EmailBindDialog } from '../dialogs/email-bind-dialog'
-import { TelegramBindDialog } from '../dialogs/telegram-bind-dialog'
-import { WeChatBindDialog } from '../dialogs/wechat-bind-dialog'
 
 // ============================================================================
 // Account Bindings Tab Component
@@ -40,7 +38,7 @@ interface AccountBindingsTabProps {
   onUpdate: () => void
 }
 
-type DialogKey = 'email' | 'wechat' | 'telegram'
+type DialogKey = 'email'
 
 export function AccountBindingsTab({
   profile,
@@ -93,17 +91,6 @@ export function AccountBindingsTab({
         onBind: () => dialogs.open('email'),
       },
       {
-        id: 'wechat',
-        label: t('WeChat'),
-        icon: SiWechat as React.ComponentType<{ className?: string }>,
-        value: undefined,
-        isBound: Boolean(
-          (profile as unknown as Record<string, unknown>).wechat_id
-        ),
-        isEnabled: status?.wechat_login || false,
-        onBind: () => dialogs.open('wechat'),
-      },
-      {
         id: 'github',
         label: t('GitHub'),
         icon: SiGithub,
@@ -119,19 +106,6 @@ export function AccountBindingsTab({
             handleGitHubOAuth(status.github_client_id)
           }
         },
-      },
-      {
-        id: 'telegram',
-        label: t('Telegram'),
-        icon: Send,
-        value: (profile as unknown as Record<string, unknown>).telegram_id as
-          | string
-          | undefined,
-        isBound: Boolean(
-          (profile as unknown as Record<string, unknown>).telegram_id
-        ),
-        isEnabled: status?.telegram_oauth || false,
-        onBind: () => dialogs.open('telegram'),
       },
       {
         id: 'linuxdo',
@@ -210,27 +184,6 @@ export function AccountBindingsTab({
         currentEmail={profile.email}
         onSuccess={onUpdate}
       />
-
-      {/* WeChat Bind Dialog */}
-      <WeChatBindDialog
-        open={dialogs.isOpen('wechat')}
-        onOpenChange={(open) =>
-          open ? dialogs.open('wechat') : dialogs.close('wechat')
-        }
-        onSuccess={onUpdate}
-      />
-
-      {/* Telegram Bind Dialog */}
-      {status?.telegram_bot_name && (
-        <TelegramBindDialog
-          open={dialogs.isOpen('telegram')}
-          onOpenChange={(open) =>
-            open ? dialogs.open('telegram') : dialogs.close('telegram')
-          }
-          botName={status.telegram_bot_name as string}
-          onSuccess={onUpdate}
-        />
-      )}
     </>
   )
 }

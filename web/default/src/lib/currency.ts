@@ -137,7 +137,7 @@ const DEFAULT_FORMAT_OPTIONS: ResolvedCurrencyFormatOptions = {
   locale: undefined,
 }
 
-const DISPLAY_TYPE_VALUES = ['USD', 'CNY', 'TOKENS', 'CUSTOM'] as const
+const DISPLAY_TYPE_VALUES = ['CNY', 'TOKENS', 'CUSTOM'] as const
 type DisplayTypeLiteral = (typeof DISPLAY_TYPE_VALUES)[number]
 
 export function isCurrencyDisplayType(
@@ -166,10 +166,6 @@ function getConfig(): CurrencyConfig {
       currency?.quotaPerUnit && currency.quotaPerUnit > 0
         ? currency.quotaPerUnit
         : DEFAULT_CURRENCY_CONFIG.quotaPerUnit,
-    usdExchangeRate:
-      currency?.usdExchangeRate && currency.usdExchangeRate > 0
-        ? currency.usdExchangeRate
-        : DEFAULT_CURRENCY_CONFIG.usdExchangeRate,
     customCurrencyExchangeRate:
       currency?.customCurrencyExchangeRate &&
       currency.customCurrencyExchangeRate > 0

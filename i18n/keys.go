@@ -97,14 +97,9 @@ const (
 	MsgUserAlreadyCommon             = "user.already_common"
 	MsgUserAdminCannotPromote        = "user.admin_cannot_promote"
 	MsgUserOriginalPasswordError     = "user.original_password_error"
-	MsgUserInviteQuotaInsufficient   = "user.invite_quota_insufficient"
-	MsgUserTransferQuotaMinimum      = "user.transfer_quota_minimum"
-	MsgUserTransferSuccess           = "user.transfer_success"
-	MsgUserTransferFailed            = "user.transfer_failed"
 	MsgUserTopUpProcessing           = "user.topup_processing"
 	MsgUserRegisterFailed            = "user.register_failed"
 	MsgUserDefaultTokenFailed        = "user.default_token_failed"
-	MsgUserAffCodeEmpty              = "user.aff_code_empty"
 	MsgUserEmailEmpty                = "user.email_empty"
 	MsgUserGitHubIdEmpty             = "user.github_id_empty"
 	MsgUserLinuxDOIdEmpty            = "user.linux_do_id_empty"
@@ -193,14 +188,6 @@ const (
 	MsgGroupNameTypeEmpty = "group.name_type_empty"
 	MsgGroupNameExists    = "group.name_exists"
 	MsgGroupIdMissing     = "group.id_missing"
-)
-
-// Checkin related messages
-const (
-	MsgCheckinDisabled     = "checkin.disabled"
-	MsgCheckinAlreadyToday = "checkin.already_today"
-	MsgCheckinFailed       = "checkin.failed"
-	MsgCheckinQuotaFailed  = "checkin.quota_failed"
 )
 
 // Passkey related messages

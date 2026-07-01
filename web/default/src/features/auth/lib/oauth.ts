@@ -52,14 +52,6 @@ export function getAvailableOAuthProviders(
     })
   }
 
-  if (status.telegram_oauth) {
-    providers.push({
-      name: 'Telegram',
-      type: 'telegram',
-      enabled: true,
-    })
-  }
-
   return providers
 }
 
@@ -68,10 +60,5 @@ export function getAvailableOAuthProviders(
  */
 export function hasOAuthProviders(status: SystemStatus | null): boolean {
   if (!status) return false
-  return !!(
-    status.github_oauth ||
-    status.linuxdo_oauth ||
-    status.telegram_oauth ||
-    status.wechat_login
-  )
+  return !!(status.github_oauth || status.linuxdo_oauth)
 }

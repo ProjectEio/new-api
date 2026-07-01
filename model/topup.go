@@ -321,6 +321,3 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 	RecordTopupLog(userId, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney), callerIp, paymentMethod, "admin")
 	return nil
 }
-
-
-

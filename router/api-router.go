@@ -22,7 +22,6 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/setup", controller.GetSetup)
 		apiRouter.POST("/setup", anonymousRequestBodyLimit, controller.PostSetup)
 		apiRouter.GET("/status", controller.GetStatus)
-		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
 		apiRouter.GET("/notice", controller.GetNotice)
@@ -80,13 +79,11 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/passkey/verify/begin", controller.PasskeyVerifyBegin)
 				selfRoute.POST("/passkey/verify/finish", controller.PasskeyVerifyFinish)
 				selfRoute.DELETE("/passkey", controller.PasskeyDelete)
-				selfRoute.GET("/aff", controller.GetAffCode)
 				selfRoute.GET("/topup/info", controller.GetTopUpInfo)
 				selfRoute.GET("/topup/self", controller.GetUserTopUps)
 				selfRoute.POST("/topup", middleware.CriticalRateLimit(), controller.TopUp)
 				selfRoute.POST("/pay", middleware.CriticalRateLimit(), controller.RequestEpay)
 				selfRoute.POST("/amount", controller.RequestAmount)
-				selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
 
 				// 2FA routes
@@ -95,10 +92,6 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/2fa/enable", controller.Enable2FA)
 				selfRoute.POST("/2fa/disable", controller.Disable2FA)
 				selfRoute.POST("/2fa/backup_codes", controller.RegenerateBackupCodes)
-
-				// Check-in routes
-				selfRoute.GET("/checkin", controller.GetCheckinStatus)
-				selfRoute.POST("/checkin", middleware.TurnstileCheck(), controller.DoCheckin)
 			}
 
 			adminRoute := userRoute.Group("/")

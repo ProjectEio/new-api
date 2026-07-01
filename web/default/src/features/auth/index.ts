@@ -30,7 +30,6 @@ export {
   bindEmail,
   getOAuthState,
   githubOAuthStart,
-  wechatLoginByCode,
 } from './api'
 
 // ============================================================================

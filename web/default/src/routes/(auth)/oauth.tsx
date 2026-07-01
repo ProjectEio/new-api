@@ -22,13 +22,12 @@ import i18next from 'i18next'
 import { toast } from 'sonner'
 import { useAuthStore, type AuthUser } from '@/stores/auth-store'
 import { getSelf } from '@/lib/api'
-import { wechatLoginByCode } from '@/features/auth/api'
 
 function OAuthComponent() {
   const navigate = useNavigate()
   const search = useSearch({ from: '/(auth)/oauth' }) as {
     redirect?: string
-    provider?: 'github' | 'linuxdo' | 'telegram' | 'wechat'
+    provider?: 'github' | 'linuxdo'
     code?: string
     state?: string
   }
@@ -36,9 +35,6 @@ function OAuthComponent() {
   useEffect(() => {
     ;(async () => {
       try {
-        if (search?.provider === 'wechat' && search.code) {
-          await wechatLoginByCode(search.code)
-        }
         const res = await getSelf()
         if (res?.success) {
           useAuthStore.getState().auth.setUser(res.data as AuthUser)

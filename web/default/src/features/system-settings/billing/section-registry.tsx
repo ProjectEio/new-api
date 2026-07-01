@@ -81,16 +81,13 @@ const BILLING_SECTIONS = [
     id: 'currency',
     titleKey: 'Currency & Display',
     build: (settings: BillingSettings) => {
-      const parsedDisplayType = parseCurrencyDisplayType(
+      const quotaDisplayType = parseCurrencyDisplayType(
         settings['general_setting.quota_display_type']
       )
-      const quotaDisplayType =
-        parsedDisplayType === 'USD' ? 'CNY' : parsedDisplayType
       return (
         <PricingSection
           defaultValues={{
             QuotaPerUnit: settings.QuotaPerUnit,
-            USDExchangeRate: settings.USDExchangeRate,
             DisplayInCurrencyEnabled: settings.DisplayInCurrencyEnabled,
             DisplayTokenStatEnabled: settings.DisplayTokenStatEnabled,
             general_setting: {

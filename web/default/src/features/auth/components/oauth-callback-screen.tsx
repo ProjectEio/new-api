@@ -17,9 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
-import { Loader2, Send, UserRound, type LucideIcon } from 'lucide-react'
+import { Loader2, UserRound, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { SiGithub, SiLinux, SiWechat } from 'react-icons/si'
+import { SiGithub, SiLinux } from 'react-icons/si'
 import { AuthLayout } from '../auth-layout'
 
 type OAuthCallbackScreenProps = {
@@ -43,13 +43,6 @@ const providerDictionary: Record<string, ProviderMeta> = {
     label: 'LinuxDO',
     Icon: (props: { className?: string }) => (
       <SiLinux className={props.className} focusable='false' />
-    ),
-  },
-  telegram: { label: 'Telegram', Icon: Send },
-  wechat: {
-    label: 'WeChat',
-    Icon: (props: { className?: string }) => (
-      <SiWechat className={props.className} focusable='false' />
     ),
   },
 }
