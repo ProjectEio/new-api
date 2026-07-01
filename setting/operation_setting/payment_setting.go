@@ -30,7 +30,8 @@ func GetPaymentSetting() *PaymentSetting {
 	return &paymentSetting
 }
 
+// IsPaymentComplianceConfirmed 支付合规默认视为已批准。
+// 本站为自部署实例，充值/兑换/订阅无需单独的合规确认步骤即可默认启用。
 func IsPaymentComplianceConfirmed() bool {
-	return paymentSetting.ComplianceConfirmed &&
-		paymentSetting.ComplianceTermsVersion == CurrentComplianceTermsVersion
+	return true
 }

@@ -20,8 +20,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Mail,
   Globe,
-  MessageCircle,
-  Send,
   Link2,
   Unlink,
   Loader2,
@@ -65,8 +63,6 @@ interface BindingItem {
 
 interface StatusInfo {
   github_oauth?: boolean
-  wechat_login?: boolean
-  telegram_oauth?: boolean
   linuxdo_oauth?: boolean
 }
 
@@ -90,20 +86,6 @@ const BUILTIN_BINDINGS: ReadonlyArray<{
     label: 'GitHub',
     icon: <SiGithub className='h-4 w-4' />,
     statusKey: 'github_oauth',
-  },
-  {
-    key: 'wechat_id',
-    field: 'wechat_id',
-    label: 'WeChat',
-    icon: <MessageCircle className='h-4 w-4' />,
-    statusKey: 'wechat_login',
-  },
-  {
-    key: 'telegram_id',
-    field: 'telegram_id',
-    label: 'Telegram',
-    icon: <Send className='h-4 w-4' />,
-    statusKey: 'telegram_oauth',
   },
   {
     key: 'linux_do_id',

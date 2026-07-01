@@ -107,9 +107,7 @@ export const DEFAULT_GROUP = 'default' as const
 
 export const BINDING_FIELDS = [
   { key: 'github_id', label: 'GitHub ID' },
-  { key: 'wechat_id', label: 'WeChat ID' },
   { key: 'email', label: 'Email' },
-  { key: 'telegram_id', label: 'Telegram ID' },
 ] as const
 
 // ============================================================================
