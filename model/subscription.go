@@ -34,6 +34,13 @@ const (
 	SubscriptionResetCustom  = "custom"
 )
 
+// Subscription stacking mode（购买/兑换时与既有订阅的叠加方式）
+const (
+	SubscriptionStackImmediate   = "immediate"    // 立即叠加（并行，从现在开始）
+	SubscriptionStackQueueLatest = "queue_latest" // 排队到所有有效订阅中最晚到期之后
+	SubscriptionStackExtendSame  = "extend_same"  // 同套餐：从该套餐最晚到期时间续期
+)
+
 var (
 	ErrSubscriptionOrderNotFound      = errors.New("subscription order not found")
 	ErrSubscriptionOrderStatusInvalid = errors.New("subscription order status invalid")
@@ -169,6 +176,9 @@ type SubscriptionPlan struct {
 	// Max purchases per user (0 = unlimited)
 	MaxPurchasePerUser int `json:"max_purchase_per_user" gorm:"type:int;default:0"`
 
+	// StackMode 叠加策略：immediate(默认)/queue_latest/extend_same。
+	StackMode string `json:"stack_mode" gorm:"type:varchar(16);default:'immediate'"`
+
 	// Total quota (amount in quota units, 0 = unlimited)
 	TotalAmount int64 `json:"total_amount" gorm:"type:bigint;not null;default:0"`
 
@@ -258,15 +268,6 @@ type UserSubscription struct {
 	LastResetTime int64 `json:"last_reset_time" gorm:"type:bigint;default:0"`
 	NextResetTime int64 `json:"next_reset_time" gorm:"type:bigint;default:0;index"`
 
-	UpgradeGroup  string `json:"upgrade_group" gorm:"type:varchar(64);default:''"`
-	PrevUserGroup string `json:"prev_user_group" gorm:"type:varchar(64);default:''"`
-
-	// Downgrade target group on expiry (snapshot from plan; empty = revert to PrevUserGroup)
-	DowngradeGroup string `json:"downgrade_group" gorm:"type:varchar(64);default:''"`
-
-	// GrantedGroups 本订阅实际授予的可访问分组名快照（JSON 数组），到期据此移除。
-	GrantedGroups string `json:"granted_groups" gorm:"type:text"`
-
 	// Whether wallet fallback is allowed after this subscription's quota is exhausted (snapshot from plan)
 	AllowWalletOverflow bool `json:"allow_wallet_overflow"`
 
@@ -288,6 +289,27 @@ func (s *UserSubscription) BeforeUpdate(tx *gorm.DB) error {
 
 type SubscriptionSummary struct {
 	Subscription *UserSubscription `json:"subscription"`
+}
+
+// calcSubscriptionStartTime 依据套餐叠加策略计算新订阅的起始时间戳。
+func calcSubscriptionStartTime(tx *gorm.DB, userId int, plan *SubscriptionPlan, nowUnix int64) (int64, error) {
+	mode := strings.TrimSpace(plan.StackMode)
+	if mode == "" || mode == SubscriptionStackImmediate {
+		return nowUnix, nil
+	}
+	q := tx.Model(&UserSubscription{}).
+		Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", nowUnix)
+	if mode == SubscriptionStackExtendSame {
+		q = q.Where("plan_id = ?", plan.Id)
+	}
+	var latest int64
+	if err := q.Select("COALESCE(MAX(end_time), 0)").Scan(&latest).Error; err != nil {
+		return 0, err
+	}
+	if latest > nowUnix {
+		return latest, nil
+	}
+	return nowUnix, nil
 }
 
 func calcPlanEndTime(start time.Time, plan *SubscriptionPlan) (int64, error) {
@@ -561,16 +583,21 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		}
 	}
 	nowUnix := GetDBTimestamp()
-	now := time.Unix(nowUnix, 0)
-	endUnix, err := calcPlanEndTime(now, plan)
+	// 叠加策略决定起始时间：立即=现在；排队/续期=从既有有效订阅最晚到期时间开始。
+	startUnix, err := calcSubscriptionStartTime(tx, userId, plan, nowUnix)
 	if err != nil {
 		return nil, err
 	}
-	resetBase := now
+	start := time.Unix(startUnix, 0)
+	endUnix, err := calcPlanEndTime(start, plan)
+	if err != nil {
+		return nil, err
+	}
+	resetBase := start
 	nextReset := calcNextResetTime(resetBase, plan, endUnix)
 	lastReset := int64(0)
 	if nextReset > 0 {
-		lastReset = now.Unix()
+		lastReset = startUnix
 	}
 	allowWalletOverflow := true
 	if plan.AllowWalletOverflow != nil {
@@ -581,7 +608,7 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		PlanId:              plan.Id,
 		AmountTotal:         plan.TotalAmount,
 		AmountUsed:          0,
-		StartTime:           now.Unix(),
+		StartTime:           startUnix,
 		EndTime:             endUnix,
 		Status:              "active",
 		Source:              source,

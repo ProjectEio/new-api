@@ -23,13 +23,15 @@ function lucideDeepImportsPlugin(): Plugin {
   // location — third-party deps (e.g. @lobehub/icons) can't resolve a bare
   // `lucide-react/...` specifier from their own pnpm context.
   let iconsDir = ''
+  let esmDirPosix = ''
   try {
     const require = createRequire(import.meta.url)
     const esmDir = path.join(
       path.dirname(require.resolve('lucide-react/package.json')),
       'dist/esm'
     )
-    iconsDir = path.join(esmDir, 'icons').replace(/\\/g, '/')
+    esmDirPosix = esmDir.replaceAll('\\', '/')
+    iconsDir = path.join(esmDir, 'icons').replaceAll('\\', '/')
     const src = fs.readFileSync(
       path.join(esmDir, 'lucide-react.mjs'),
       'utf8'
@@ -50,21 +52,29 @@ function lucideDeepImportsPlugin(): Plugin {
   // Non-icon exports of lucide-react that are type-only. Emitting them via
   // `import type` guarantees they're erased and never pull in the barrel.
   const LUCIDE_TYPE_EXPORTS = new Set(['LucideIcon', 'LucideProps', 'IconNode'])
+  // Non-icon *runtime* exports that live in their own default-exporting module
+  // (e.g. @lobehub/ui's custom icons `import { createLucideIcon }`). Rewriting
+  // these to their deep file keeps the barrel out of the graph entirely.
+  const NONICON_DEFAULT = new Set(['createLucideIcon', 'Icon'])
 
   return {
     name: 'lucide-deep-imports',
     enforce: 'pre',
     apply: 'build',
-    buildStart() {
-      ;(globalThis as any).__lucideStats = { rewritten: 0, unmatched: [] }
-    },
     transform(code, id) {
       if (iconToFile.size === 0) return
-      if (!/\.[jt]sx?$/.test(id) || !code.includes('lucide-react')) return
-      const stats = (globalThis as any).__lucideStats
+      // Strip query suffixes (e.g. TanStack Router's `?tsr-split=component`)
+      // and cover .mjs/.cjs so pre-built deps (e.g. @lobehub/ui) are rewritten.
+      const clean = id.split('?')[0]
+      if (
+        !/\.(mjs|cjs|jsx?|tsx?)$/.test(clean) ||
+        !code.includes('lucide-react')
+      ) {
+        return
+      }
 
       let changed = false
-      const out = code.replace(importRe, (full, typeKw, body) => {
+      const out = code.replace(importRe, (full, typeKw, body: string) => {
         const deep: string[] = []
         const typeResidual: string[] = []
         const valueResidual: string[] = []
@@ -77,7 +87,9 @@ function lucideDeepImportsPlugin(): Plugin {
             .split(/\s+as\s+/)
             .map((s) => s.trim())
           const file = iconToFile.get(name)
-          if (file && !isTypeOnly) {
+          if (!isTypeOnly && NONICON_DEFAULT.has(name)) {
+            deep.push(`import ${alias} from '${esmDirPosix}/${name}.mjs';`)
+          } else if (file && !isTypeOnly) {
             deep.push(`import ${alias} from '${iconsDir}/${file}';`)
           } else if (isTypeOnly || LUCIDE_TYPE_EXPORTS.has(name)) {
             typeResidual.push(cleaned)
@@ -101,22 +113,7 @@ function lucideDeepImportsPlugin(): Plugin {
         return parts.join('\n')
       })
 
-      if (changed) {
-        stats.rewritten++
-        return { code: out, map: null }
-      }
-      // Referenced lucide-react but nothing was rewritten — a form the regex
-      // missed or a pure type import. Record for diagnosis.
-      if (/from ['"]lucide-react['"]/.test(code)) {
-        stats.unmatched.push(id.split(/node_modules[\\/]/).pop())
-      }
-    },
-    buildEnd() {
-      const stats = (globalThis as any).__lucideStats
-      console.log(
-        `\n[lucide] rewritten=${stats.rewritten} unmatched=${stats.unmatched.length}`
-      )
-      for (const u of stats.unmatched.slice(0, 30)) console.log('  unmatched:', u)
+      if (changed) return { code: out, map: null }
     },
   }
 }
@@ -142,30 +139,6 @@ export default defineConfig(({ mode }) => {
       tanstackRouter({ target: 'react', autoCodeSplitting: isProd }),
       react(),
       lucideDeepImportsPlugin(),
-      {
-        name: 'module-count-probe',
-        buildEnd() {
-          const counts: Record<string, number> = {}
-          for (const id of this.getModuleIds()) {
-            if (!id.includes('node_modules')) {
-              counts['(app src)'] = (counts['(app src)'] || 0) + 1
-              continue
-            }
-            const last = id.split(/[\\/]node_modules[\\/]/).pop() || ''
-            const parts = last.split(/[\\/]/)
-            const pkg = parts[0].startsWith('@')
-              ? `${parts[0]}/${parts[1]}`
-              : parts[0]
-            counts[pkg] = (counts[pkg] || 0) + 1
-          }
-          const top = Object.entries(counts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 12)
-          console.log('\n=== MODULE COUNT BY PACKAGE (top 12) ===')
-          for (const [pkg, n] of top)
-            console.log(String(n).padStart(6), pkg)
-        },
-      },
     ],
     resolve: {
       alias: {

@@ -35,7 +35,6 @@ type User struct {
 	Quota            int            `json:"quota" gorm:"type:int;default:0"`
 	UsedQuota        int            `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
 	RequestCount     int            `json:"request_count" gorm:"type:int;default:0;"`               // request number
-	Group string `json:"group" gorm:"type:varchar(64);default:'default'"`
 	// GroupAuthorizations 分组授权表：group -> [来源]（JSON）。来源如 "sub:订阅ID"、"manual"。
 	// 订阅激活加来源、到期移除；某分组来源清空即失去授权。仅对受限(plan_only)分组生效。
 	GroupAuthorizations string         `json:"group_authorizations" gorm:"type:text"`
@@ -49,12 +48,11 @@ type User struct {
 
 func (user *User) ToBaseUser() *UserBase {
 	cache := &UserBase{
-		Id:               user.Id,
-		Group:            user.Group,
-		Quota:            user.Quota,
-		Status:           user.Status,
-		Username:         user.Username,
-		Setting:          user.Setting,
+		Id:                  user.Id,
+		Quota:               user.Quota,
+		Status:              user.Status,
+		Username:            user.Username,
+		Setting:             user.Setting,
 		Email:               user.Email,
 		GroupAuthorizations: user.GroupAuthorizations,
 	}
@@ -526,11 +524,10 @@ func (user *User) Edit(updatePassword bool) error {
 
 	newUser := *user
 	updates := map[string]interface{}{
-		"username":          newUser.Username,
-		"display_name":      newUser.DisplayName,
-		"group":             newUser.Group,
-		"accessible_groups": newUser.AccessibleGroups,
-		"remark":            newUser.Remark,
+		"username":             newUser.Username,
+		"display_name":         newUser.DisplayName,
+		"group_authorizations": newUser.GroupAuthorizations,
+		"remark":               newUser.Remark,
 	}
 	if updatePassword {
 		updates["password"] = newUser.Password
@@ -765,32 +762,10 @@ func GetUserEmail(id int) (email string, err error) {
 	return email, err
 }
 
-// GetUserGroup gets group from Redis first, falls back to DB if needed
+// GetUserGroup 用户不再有独立分组，统一返回默认分组 "default"。
+// 请求实际使用的分组由令牌分组决定（见 middleware/auth）。
 func GetUserGroup(id int, fromDB bool) (group string, err error) {
-	defer func() {
-		// Update Redis cache asynchronously on successful DB read
-		if shouldUpdateRedis(fromDB, err) {
-			gopool.Go(func() {
-				if err := updateUserGroupCache(id, group); err != nil {
-					common.SysLog("failed to update user group cache: " + err.Error())
-				}
-			})
-		}
-	}()
-	if !fromDB && common.RedisEnabled {
-		group, err := getUserGroupCache(id)
-		if err == nil {
-			return group, nil
-		}
-		// Don't return error - fall through to DB
-	}
-	fromDB = true
-	err = DB.Model(&User{}).Where("id = ?", id).Select(commonGroupCol).Find(&group).Error
-	if err != nil {
-		return "", err
-	}
-
-	return group, nil
+	return "default", nil
 }
 
 // GetUserSetting gets setting from Redis first, falls back to DB if needed

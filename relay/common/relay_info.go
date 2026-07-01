@@ -432,7 +432,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	tokenGroup := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)
 	// 当令牌分组为空时，表示使用用户分组
 	if tokenGroup == "" {
-		tokenGroup = common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+		tokenGroup = common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 	}
 
 	startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime)
@@ -459,7 +459,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		RequestId:  reqId,
 		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
 		UsingGroup: common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
-		UserGroup:  common.GetContextKeyString(c, constant.ContextKeyUserGroup),
+		UserGroup:  common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
 		UserQuota:  common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
 		UserEmail:  common.GetContextKeyString(c, constant.ContextKeyUserEmail),
 

@@ -396,18 +396,31 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		return session, nil
 	}
 
-	// 分组绑定套餐：强制从套餐订阅额度扣费，无有效订阅则拒绝并提示“无可用套餐”。
-	// TODO(RC): 按 boundPlanId 精确消费该套餐的订阅（当前先用通用订阅逻辑）。
-	if boundPlanId := ratio_setting.GetGroupConsumePlanId(relayInfo.UsingGroup); boundPlanId > 0 {
+	// 分组访问/计费模式：
+	// - balance_only：仅走钱包余额。
+	// - plan_only：仅走绑定套餐的订阅额度，无有效订阅则拒绝“无可用套餐”。
+	// - open(默认)：按用户计费偏好（下方 switch）。
+	usingGroup := relayInfo.UsingGroup
+	if ratio_setting.GroupIsBalanceOnly(usingGroup) {
+		return tryWallet()
+	}
+	if ratio_setting.GroupIsPlanOnly(usingGroup) {
 		noPlan := func() *types.NewAPIError {
 			return types.NewErrorWithStatusCode(
 				fmt.Errorf("无可用套餐"),
 				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
 				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
 		}
-		hasSub, subCheckErr := model.HasActiveUserSubscription(relayInfo.UserId)
-		if subCheckErr != nil {
-			return nil, types.NewError(subCheckErr, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+		hasSub := false
+		for _, planId := range ratio_setting.GetGroupPlans(usingGroup) {
+			ok, subErr := model.HasActiveUserSubscriptionOfPlan(relayInfo.UserId, planId)
+			if subErr != nil {
+				return nil, types.NewError(subErr, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+			}
+			if ok {
+				hasSub = true
+				break
+			}
 		}
 		if !hasSub {
 			return nil, noPlan()

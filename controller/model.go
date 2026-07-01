@@ -145,7 +145,7 @@ type modelListGroups struct {
 
 func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 	tokenGroup := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)
-	userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+	userGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 	if userGroup == "" && (tokenGroup == "" || tokenGroup == "auto") {
 		var err error
 		userGroup, err = model.GetUserGroup(c.GetInt("id"), false)
