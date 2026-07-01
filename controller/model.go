@@ -34,6 +34,9 @@ func init() {
 			continue
 		}
 		adaptor := relay.GetAdaptor(i)
+		if adaptor == nil {
+			continue
+		}
 		channelName := adaptor.GetChannelName()
 		modelNames := adaptor.GetModelList()
 		for _, modelName := range modelNames {

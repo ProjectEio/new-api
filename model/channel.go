@@ -67,6 +67,13 @@ type ChannelInfo struct {
 	MultiKeyDisabledTime   map[int]int64         `json:"multi_key_disabled_time,omitempty"`   // key禁用时间列表，key index -> time
 	MultiKeyPollingIndex   int                   `json:"multi_key_polling_index"`             // 多Key模式下轮询的key索引
 	MultiKeyMode           constant.MultiKeyMode `json:"multi_key_mode"`
+	// Sticky 模式配置（<=0 时使用默认值）
+	MultiKeyErrorThreshold   int `json:"multi_key_error_threshold,omitempty"`    // 连续出错多少次后禁用该密钥
+	MultiKeyRecoverySeconds  int `json:"multi_key_recovery_seconds,omitempty"`   // 被禁用密钥的恢复探测间隔（秒）
+	MultiKeyMaxRecoveryFails int `json:"multi_key_max_recovery_fails,omitempty"` // 恢复探测连续失败多少次后永久禁用
+	// Sticky 模式运行时状态
+	MultiKeyErrorCount    map[int]int `json:"multi_key_error_count,omitempty"`    // 每个key的连续出错次数，key index -> count
+	MultiKeyRecoveryFails map[int]int `json:"multi_key_recovery_fails,omitempty"` // 每个key的恢复探测失败次数，key index -> count
 }
 
 type ChannelSortOptions struct {

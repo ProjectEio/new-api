@@ -29,8 +29,18 @@ const (
 	AwsKeyTypeApiKey AwsKeyType = "api_key"
 )
 
+// OpenAI upstream protocol capability for a channel. Distinguishes an upstream
+// that only speaks the legacy Chat Completions API from one that speaks the
+// Responses API, so the relay can pick the right protocol / conversion.
+const (
+	OpenAIProtocolAuto            = ""          // follow the global chat→responses policy
+	OpenAIProtocolChatCompletions = "chat"      // legacy-only: upstream speaks /v1/chat/completions
+	OpenAIProtocolResponses       = "responses" // upstream speaks the /v1/responses API
+)
+
 type ChannelOtherSettings struct {
 	AzureResponsesVersion                 string                `json:"azure_responses_version,omitempty"`
+	OpenAIProtocol                        string                `json:"openai_protocol,omitempty"` // "" (auto) | "chat" (legacy-only) | "responses"
 	VertexKeyType                         VertexKeyType         `json:"vertex_key_type,omitempty"` // "json" or "api_key"
 	OpenRouterEnterprise                  *bool                 `json:"openrouter_enterprise,omitempty"`
 	ClaudeBetaQuery                       bool                  `json:"claude_beta_query,omitempty"`          // Claude 渠道是否强制追加 ?beta=true
